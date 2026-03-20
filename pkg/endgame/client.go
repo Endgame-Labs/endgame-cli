@@ -27,6 +27,12 @@ type Tool struct {
 	Description string `json:"description"`
 }
 
+type PromptResult struct {
+	OperationID string
+	ThreadID    string
+	RawText     string
+}
+
 type rpcEnvelope struct {
 	Result json.RawMessage `json:"result"`
 	Error  *struct {
@@ -179,18 +185,23 @@ func (c *Client) ListTools() ([]Tool, error) {
 	return parsed.Tools, nil
 }
 
-func (c *Client) Prompt(question string) (string, error) {
+func (c *Client) SubmitPrompt(question, threadID string) (*PromptResult, error) {
+	arguments := map[string]string{"prompt": question}
+	if strings.TrimSpace(threadID) != "" {
+		arguments["threadId"] = threadID
+	}
+
 	result, err := c.Call("tools/call", map[string]any{
 		"name":      "prompt_endgame",
-		"arguments": map[string]string{"prompt": question},
+		"arguments": arguments,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	parsed, err := decodeToolCallResult(result)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	for _, item := range parsed.Content {
@@ -198,12 +209,22 @@ func (c *Client) Prompt(question string) (string, error) {
 		if err := json.Unmarshal([]byte(item.Text), &inner); err != nil {
 			continue
 		}
+
+		response := &PromptResult{
+			RawText: item.Text,
+		}
 		if opID, ok := inner["operationId"].(string); ok && opID != "" {
-			return opID, nil
+			response.OperationID = opID
+		}
+		if tid, ok := inner["threadId"].(string); ok && tid != "" {
+			response.ThreadID = tid
+		}
+		if response.OperationID != "" || response.ThreadID != "" {
+			return response, nil
 		}
 	}
 
-	return "", errors.New("no operationId in response")
+	return nil, errors.New("no operationId or threadId in response")
 }
 
 func (c *Client) Followup(opID string) (string, string, error) {

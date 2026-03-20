@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var envCmd = &cobra.Command{
+var threadEnvCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Show required environment variables",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -21,5 +21,5 @@ var envCmd = &cobra.Command{
 }
 
 func init() {
-	threadsCmd.AddCommand(envCmd)
+	threadCmd.AddCommand(threadEnvCmd)
 }

@@ -1,18 +1,22 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/Endgame-Labs/endgame-cli/pkg/auth"
 	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
 	"github.com/spf13/cobra"
 )
 
-var toolsCmd = &cobra.Command{
-	Use:   "tools",
-	Short: "List available MCP tools",
+var newPrompt string
+
+var threadNewCmd = &cobra.Command{
+	Use:   "new",
+	Short: "Create a new Endgame thread",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_ = args
+		prompt, err := resolvePrompt(newPrompt)
+		if err != nil {
+			return err
+		}
+
 		apiKey, orgID, err := auth.LoadCredentials()
 		if err != nil {
 			return err
@@ -26,22 +30,16 @@ var toolsCmd = &cobra.Command{
 			return err
 		}
 
-		tools, err := client.ListTools()
+		result, err := client.SubmitPrompt(prompt, "")
 		if err != nil {
 			return err
 		}
 
-		for _, tool := range tools {
-			if tool.Description == "" {
-				fmt.Fprintln(cmd.OutOrStdout(), tool.Name)
-				continue
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", tool.Name, tool.Description)
-		}
-		return nil
+		return printPromptResult(cmd, result)
 	},
 }
 
 func init() {
-	threadsCmd.AddCommand(toolsCmd)
+	threadNewCmd.Flags().StringVar(&newPrompt, "prompt", "", "prompt text to send; if omitted, stdin is used")
+	threadCmd.AddCommand(threadNewCmd)
 }

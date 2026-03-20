@@ -18,11 +18,16 @@ endgame auth status
 endgame auth logout
 endgame whoami
 
-endgame threads tools
-endgame threads prompt "What deals closed this week?"
-endgame threads followup <operation-id>
-endgame threads ask "What deals closed this week?"
-endgame threads env
+endgame tools
+endgame tools people find
+endgame tools documents knowledge
+endgame tools wiki search
+
+endgame thread new --prompt "What deals closed this week?"
+echo "What deals closed this week?" | endgame thread new
+endgame thread continue --thread-id <thread-id> --prompt "What changed since yesterday?"
+endgame thread followup <operation-id>
+endgame thread env
 ```
 
 ## Auth
@@ -37,4 +42,4 @@ Authentication follows the same pattern as `linctl`:
 ## TODO
 
 - Add WorkOS OAuth-based auth flow so `endgame auth login` can avoid manual API key entry.
-- Add a top-level `endgame tools` supercommand to wrap Endgame tools like Entity Loader and Fact Search.
+- Replace stubbed `endgame tools ...` commands with live API implementations as backend support lands.
