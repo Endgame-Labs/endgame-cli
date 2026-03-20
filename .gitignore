@@ -1,0 +1,37 @@
+# Binaries and build artifacts
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Coverage and profiling
+coverage.out
+*.coverprofile
+*.prof
+
+# Dependency and workspace files
+vendor/
+go.work
+go.work.sum
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Viper-style local config
+config.local.*
+*.local.yaml
+*.local.yml
+*.local.json
+*.local.toml
+
+# IDEs and OS files
+.DS_Store
+.idea/
+.vscode/
