@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,11 @@ type endgameClient struct {
 	orgID  string
 	reqID  int
 	client *http.Client
+}
+
+type authConfig struct {
+	APIKey string `json:"api_key,omitempty"`
+	OrgID  string `json:"org_id,omitempty"`
 }
 
 type mcpTool struct {
@@ -48,9 +54,11 @@ type toolCallResult struct {
 }
 
 func newEndgameClient() (*endgameClient, error) {
-	apiKey := strings.TrimSpace(os.Getenv("ENDGAME_API_KEY"))
-	orgID := strings.TrimSpace(os.Getenv("ENDGAME_ORG_ID"))
-	timeout := 120 * time.Second
+	apiKey, orgID, err := loadCredentials()
+
+	if err != nil {
+		return nil, err
+	}
 
 	switch {
 	case apiKey == "":
@@ -59,19 +67,198 @@ func newEndgameClient() (*endgameClient, error) {
 		return nil, errors.New("ENDGAME_ORG_ID is required")
 	}
 
+	timeout, err := getTimeout()
+	if err != nil {
+		return nil, err
+	}
+
+	return buildClient(apiKey, orgID, timeout), nil
+}
+
+func getTimeout() (time.Duration, error) {
+	timeout := 120 * time.Second
 	if timeoutValue := strings.TrimSpace(os.Getenv("ENDGAME_TIMEOUT_SECONDS")); timeoutValue != "" {
 		timeoutSeconds, err := strconv.Atoi(timeoutValue)
 		if err != nil || timeoutSeconds <= 0 {
-			return nil, fmt.Errorf("invalid ENDGAME_TIMEOUT_SECONDS: %q", timeoutValue)
+			return 0, fmt.Errorf("invalid ENDGAME_TIMEOUT_SECONDS: %q", timeoutValue)
 		}
 		timeout = time.Duration(timeoutSeconds) * time.Second
 	}
 
+	return timeout, nil
+}
+
+func buildClient(apiKey, orgID string, timeout time.Duration) *endgameClient {
 	return &endgameClient{
 		apiKey: apiKey,
 		orgID:  orgID,
 		client: &http.Client{Timeout: timeout},
-	}, nil
+	}
+}
+
+func getAuthConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(homeDir, ".endgame-auth.json"), nil
+}
+
+func saveAuth(config authConfig) error {
+	configPath, err := getAuthConfigPath()
+	if err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0600)
+}
+
+func loadAuth() (*authConfig, error) {
+	configPath, err := getAuthConfigPath()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.New("not authenticated")
+		}
+		return nil, err
+	}
+
+	var config authConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+func loadCredentials() (string, string, error) {
+	apiKey := strings.TrimSpace(os.Getenv("ENDGAME_API_KEY"))
+	orgID := strings.TrimSpace(os.Getenv("ENDGAME_ORG_ID"))
+
+	if apiKey != "" && orgID != "" {
+		return apiKey, orgID, nil
+	}
+
+	config, err := loadAuth()
+	if err != nil {
+		if apiKey != "" || orgID != "" {
+			return apiKey, orgID, nil
+		}
+		return "", "", err
+	}
+
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(config.APIKey)
+	}
+	if orgID == "" {
+		orgID = strings.TrimSpace(config.OrgID)
+	}
+
+	return apiKey, orgID, nil
+}
+
+func promptInput(label string) (string, error) {
+	fmt.Print(label)
+	reader := bufio.NewReader(os.Stdin)
+	value, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(value), nil
+}
+
+func login() error {
+	configPath, err := getAuthConfigPath()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("🔐 Endgame Authentication")
+	fmt.Println()
+	fmt.Printf("Credentials will be stored in: %s\n", configPath)
+	fmt.Println()
+
+	apiKey, err := promptInput("Enter your Endgame API key: ")
+	if err != nil {
+		return err
+	}
+	if apiKey == "" {
+		return errors.New("API key cannot be empty")
+	}
+
+	orgID, err := promptInput("Enter your Endgame org ID: ")
+	if err != nil {
+		return err
+	}
+	if orgID == "" {
+		return errors.New("org ID cannot be empty")
+	}
+
+	client, err := newEndgameClientFromValues(apiKey, orgID)
+	if err != nil {
+		return err
+	}
+	if err := client.initialize(); err != nil {
+		return fmt.Errorf("invalid credentials: %w", err)
+	}
+	if _, err := client.listTools(); err != nil {
+		return fmt.Errorf("invalid credentials: %w", err)
+	}
+
+	if err := saveAuth(authConfig{APIKey: apiKey, OrgID: orgID}); err != nil {
+		return err
+	}
+
+	fmt.Printf("\n✅ Authenticated for org %s\n", orgID)
+	return nil
+}
+
+func logout() error {
+	configPath, err := getAuthConfigPath()
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove(configPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return nil
+}
+
+func newEndgameClientFromValues(apiKey, orgID string) (*endgameClient, error) {
+	timeout, err := getTimeout()
+	if err != nil {
+		return nil, err
+	}
+	return buildClient(apiKey, orgID, timeout), nil
+}
+
+func verifyAuth() (string, error) {
+	client, err := newEndgameClient()
+	if err != nil {
+		return "", err
+	}
+
+	if err := client.initialize(); err != nil {
+		return "", err
+	}
+	if _, err := client.listTools(); err != nil {
+		return "", err
+	}
+
+	return client.orgID, nil
 }
 
 func (c *endgameClient) endpoint() string {
@@ -267,8 +454,74 @@ func waitForCompletion(client *endgameClient, opID string, maxPolls int, delay t
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "endgame",
-		Short: "CLI for the Endgame.io API",
+		Use:           "endgame",
+		Short:         "CLI for the Endgame.io API",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	authCmd := &cobra.Command{
+		Use:   "auth",
+		Short: "Authenticate with Endgame",
+		Long: `Authenticate with Endgame using an API key and org ID.
+
+Examples:
+  endgame auth              # Interactive authentication
+  endgame auth login        # Same as above
+  endgame auth status       # Check authentication status
+  endgame auth logout       # Clear stored credentials`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return login()
+		},
+	}
+
+	loginCmd := &cobra.Command{
+		Use:   "login",
+		Short: "Login to Endgame",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return login()
+		},
+	}
+
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Check authentication status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			orgID, err := verifyAuth()
+			if err != nil {
+				return fmt.Errorf("not authenticated: %w", err)
+			}
+
+			source := "config file"
+			if strings.TrimSpace(os.Getenv("ENDGAME_API_KEY")) != "" && strings.TrimSpace(os.Getenv("ENDGAME_ORG_ID")) != "" {
+				source = "environment"
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "✅ Authenticated")
+			fmt.Fprintf(cmd.OutOrStdout(), "Org: %s\n", orgID)
+			fmt.Fprintf(cmd.OutOrStdout(), "Source: %s\n", source)
+			return nil
+		},
+	}
+
+	logoutCmd := &cobra.Command{
+		Use:   "logout",
+		Short: "Logout from Endgame",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logout(); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "✅ Successfully logged out")
+			return nil
+		},
+	}
+
+	whoamiCmd := &cobra.Command{
+		Use:   "whoami",
+		Short: "Show current authentication target",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return statusCmd.RunE(cmd, args)
+		},
 	}
 
 	threadsCmd := &cobra.Command{
@@ -419,7 +672,8 @@ func main() {
 		return nil
 	}
 
-	rootCmd.AddCommand(threadsCmd)
+	rootCmd.AddCommand(authCmd, whoamiCmd, threadsCmd)
+	authCmd.AddCommand(loginCmd, statusCmd, logoutCmd)
 	threadsCmd.AddCommand(toolsCmd, promptCmd, followupCmd, askCmd, envCmd)
 
 	if err := rootCmd.Execute(); err != nil {
