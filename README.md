@@ -2,6 +2,13 @@
 
 Minimal Go CLI for the Endgame.io MCP bridge.
 
+## Layout
+
+- `main.go` is the thin entrypoint.
+- `cmd/` contains Cobra root commands, supercommands, and subcommands.
+- `pkg/auth/` contains credential persistence and auth verification.
+- `pkg/endgame/` contains the MCP client and request/polling logic.
+
 ## Commands
 
 ```bash
