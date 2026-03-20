@@ -1,6 +1,8 @@
 # Binaries and build artifacts
 /bin/
 /dist/
+/endgame
+/endgame-cli
 *.exe
 *.exe~
 *.dll
