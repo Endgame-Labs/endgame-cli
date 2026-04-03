@@ -31,6 +31,18 @@ endgame auth login
 endgame auth status
 ```
 
+Manual remote login:
+
+```bash
+endgame auth login --no-browser --callback-port 8788
+```
+
+Then open the printed URL in a browser. If the CLI is running on a remote server, forward the callback port first:
+
+```bash
+ssh -L 8788:127.0.0.1:8788 <server>
+```
+
 List available MCP tools:
 
 ```bash
@@ -61,6 +73,8 @@ Authentication is browser-based OAuth against the public Endgame auth server.
 - login completes with authorization code + PKCE on a localhost callback
 - refreshable OAuth tokens are stored in `~/.endgame-auth.json`
 - `endgame auth status` verifies the saved token set against MCP
+
+The auth server currently supports `authorization_code` and `refresh_token`, not OAuth device authorization. `--no-browser` is manual PKCE mode that prints the URL instead of opening a browser.
 
 There are no required auth environment variables. `endgame thread env` reports `ENDGAME_TIMEOUT_SECONDS` when set.
 
@@ -133,6 +147,64 @@ summarize_account_earnings_calls
 summarize_earnings_calls
 web_search
 ```
+
+Tool descriptions below are based on the live MCP `tools/list` response from the Endgame server.
+
+People and accounts:
+
+- `find_account_person`: Find a specific person within a specific account using name, email, Salesforce ID, LinkedIn profile ID, or Endgame Person ID.
+- `find_accounts`: Find CRM accounts assigned to a specific user, or retrieve the full sales team roster for an account.
+- `find_person`: Look up a specific person by name, email address, Salesforce ID, LinkedIn profile ID, or Endgame Person ID.
+- `get_account_person_details`: Load detailed information about specific people within a specific account.
+- `get_person_details`: Load detailed profile data for one or more people by Endgame person ID.
+- `search_account_people`: Find people of interest at a specific account across multiple data sources.
+- `search_people`: Search for people at a target company using multiple data sources with filtering and pagination.
+
+Documents and knowledge:
+
+- `fetch_knowledge_documents`: List knowledge documents with metadata, previews, and pagination support.
+- `find_relevant_documents`: Automatically find vendor knowledge documents relevant to a raw user message.
+- `get_document`: Fetch the full content of a specific document by ID.
+- `search_account_document_insights`: Search facts extracted from account-related documents, including meetings, emails, Slack, notes, and uploads.
+- `search_account_knowledge_articles`: Search synthesized knowledge articles for a specific account.
+- `search_account_knowledge_documents`: Retrieve knowledge documents uploaded for a specific account.
+- `search_document_insights`: Search extracted facts and insights across all document types.
+- `search_knowledge_articles`: Search synthesized knowledge articles about customers and topics.
+- `search_vendor_documents`: Search vendor knowledge documents using semantic and keyword matching.
+
+Meetings, interactions, and notes:
+
+- `get_account_interaction_history`: Retrieve chronological meeting and email history for a specific account.
+- `get_interaction_history`: Retrieve chronological meeting and email history across one or more accounts, or for a specific person.
+- `search_account_meetings`: Search meetings associated with a specific account.
+- `search_account_salesforce_notes`: Fetch recent Salesforce notes recorded against a specific account.
+- `search_account_slack_messages`: Fetch Slack messages related to a specific account.
+- `search_meetings`: Search meetings, calls, and emails across the organization.
+- `search_my_meetings`: Search meetings, calls, and emails where the current user is a participant.
+- `search_salesforce_notes`: Fetch Salesforce notes and activity history for a specific account.
+- `search_slack_messages`: Fetch Slack messages about a specific Salesforce account.
+
+Preferences and memory:
+
+- `get_user_preferences`: Retrieve the current user's core preferences and standing instructions.
+- `search_user_preferences`: Search the current user's contextual memories and situational preferences semantically.
+
+Research and external search:
+
+- `news_search`: Search Google News for editorial coverage within a date range.
+- `research_company`: Research one or more companies and return structured answers with quotes and source URLs.
+- `web_search`: Search the public web via Google for pages, snippets, sources, and published dates.
+
+Analytics and datasets:
+
+- `query_data`: Convert natural-language questions into SQL against the organization's warehouse data.
+- `query_dataset`: Query uploaded structured datasets with natural language.
+- `search_datasets`: Discover which structured datasets are available in the organization.
+
+Earnings:
+
+- `summarize_account_earnings_calls`: Retrieve and summarize earnings call transcripts for a specific account.
+- `summarize_earnings_calls`: Retrieve and summarize earnings call transcripts across one or more accounts.
 
 Invocation styles:
 
