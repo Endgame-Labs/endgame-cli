@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Endgame-Labs/endgame-cli/pkg/auth"
 	"github.com/spf13/cobra"
@@ -12,10 +11,10 @@ import (
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Authenticate with Endgame",
-	Long: `Authenticate with Endgame using an API key and org ID.
+	Long: `Authenticate with Endgame using browser-based OAuth.
 
 Examples:
-  endgame auth              # Interactive authentication
+  endgame auth              # Browser-based login
   endgame auth login        # Same as above
   endgame auth status       # Check authentication status
   endgame auth logout       # Clear stored credentials`,
@@ -41,19 +40,21 @@ var statusCmd = &cobra.Command{
 	Short: "Check authentication status",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_ = args
-		orgID, err := auth.Verify()
+		status, err := auth.Verify()
 		if err != nil {
 			return fmt.Errorf("not authenticated: %w", err)
 		}
 
-		source := "config file"
-		if strings.TrimSpace(os.Getenv("ENDGAME_API_KEY")) != "" && strings.TrimSpace(os.Getenv("ENDGAME_ORG_ID")) != "" {
-			source = "environment"
-		}
-
 		fmt.Fprintln(cmd.OutOrStdout(), "Authenticated")
-		fmt.Fprintf(cmd.OutOrStdout(), "Org: %s\n", orgID)
-		fmt.Fprintf(cmd.OutOrStdout(), "Source: %s\n", source)
+		if status.Email != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Email: %s\n", status.Email)
+		}
+		if status.OrgName != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Org: %s (%s)\n", status.OrgName, status.OrgID)
+		} else if status.OrgID != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "Org: %s\n", status.OrgID)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Source: config file")
 		return nil
 	},
 }

@@ -1,249 +1,41 @@
 package cmd
 
 func init() {
-	meetingsCmd := newToolGroup("meetings", "Meeting retrieval tools")
-	meetingsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "fetch",
-			Short:         "Fetch meetings across accounts and date ranges",
-			BackendTool:   "fetch_meetings",
-			RequiresFlags: "--account ... --from ... --to ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:         "mine",
-			Short:       "Fetch the current user's meetings and details",
-			BackendTool: "fetch_my_meetings",
-		}),
-	)
-
-	peopleCmd := newToolGroup("people", "People and entity search tools")
-	peopleCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "find",
-			Short:         "Find a person by name, email, or context",
-			BackendTool:   "find_person",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "lookup",
-			Short:         "Look up entities from natural-language user queries",
-			BackendTool:   "entity_lookup",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "at-company",
-			Short:         "Search for people associated with a company",
-			BackendTool:   "search_people_at_company",
-			RequiresFlags: "--company ... --query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "details",
-			Short:         "Load detailed profile data for a person",
-			BackendTool:   "load_person_details",
-			RequiresFlags: "--person-id ...",
-		}),
-	)
-
-	accountsCmd := newToolGroup("accounts", "Account discovery tools")
-	accountsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "find-for-user",
-			Short:         "Find accounts associated with a user",
-			BackendTool:   "find_accounts_for_user",
-			RequiresFlags: "--user ...",
-		}),
-	)
-
-	interactionsCmd := newToolGroup("interactions", "Interaction history tools")
-	interactionsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "history",
-			Short:         "Summarize historical interactions for accounts or topics",
-			BackendTool:   "interaction_history",
-			RequiresFlags: "--account ... | --topic ...",
-		}),
-	)
-
-	documentsCmd := newToolGroup("documents", "Document and knowledge retrieval tools")
-	documentsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "fetch",
-			Short:         "Retrieve full document contents by document ID",
-			BackendTool:   "fetch_whole_document_by_id",
-			RequiresFlags: "--document-id ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "facts",
-			Short:         "Search extracted facts across text documents",
-			BackendTool:   "search_all_text_document_facts",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "knowledge",
-			Short:         "Fetch matching knowledge documents for a topic",
-			BackendTool:   "fetch_knowledge_documents",
-			RequiresFlags: "--topic ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "vendor-knowledge",
-			Short:         "Search vendor knowledge documents for answers",
-			BackendTool:   "search_vendor_knowledge_documents",
-			RequiresFlags: "--query ...",
-		}),
-	)
-
-	datasetsCmd := newToolGroup("datasets", "Structured dataset tools")
-	datasetsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "search",
-			Short:         "Search available structured datasets by intent",
-			BackendTool:   "search_structured_datasets",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "load-from-query",
-			Short:         "Load structured data from a user query",
-			BackendTool:   "structured_dataset_loader_from_user_query",
-			RequiresFlags: "--query ...",
-		}),
-	)
-
-	slackCmd := newToolGroup("slack", "Slack retrieval tools")
-	slackCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "fetch",
-			Short:         "Fetch Slack messages related to an account",
-			BackendTool:   "fetch_slack_messages",
-			RequiresFlags: "--account ...",
-		}),
-	)
-
-	salesforceCmd := newToolGroup("salesforce", "Salesforce retrieval tools")
-	salesforceCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "notes",
-			Short:         "Fetch Salesforce notes tied to account activity",
-			BackendTool:   "fetch_salesforce_notes",
-			RequiresFlags: "--account ...",
-		}),
-	)
-
-	companiesCmd := newToolGroup("companies", "Company research tools")
-	companiesCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "research",
-			Short:         "Research companies using external web sources",
-			BackendTool:   "company_research_tool",
-			RequiresFlags: "--company ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "earnings",
-			Short:         "Summarize earnings calls for relevant companies",
-			BackendTool:   "summarize_earnings_calls",
-			RequiresFlags: "--company ...",
-		}),
-	)
-
-	webCmd := newToolGroup("web", "External web search tools")
-	webCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "search",
-			Short:         "Run a Google web search via SerpAPI",
-			BackendTool:   "serpapi_google_search",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "news",
-			Short:         "Run a Google News search via SerpAPI",
-			BackendTool:   "serpapi_google_news",
-			RequiresFlags: "--query ...",
-		}),
-	)
-
-	wikiCmd := newToolGroup("wiki", "Synthesized customer wiki article tools")
-	wikiCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "search",
-			Short:         "Search synthesized wiki articles about customers and topics",
-			BackendTool:   "search_wiki_articles",
-			RequiresFlags: "--query ...",
-		}),
-	)
-
-	memoriesCmd := newToolGroup("memories", "User memory tools")
-	memoriesCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "search",
-			Short:         "Search stored user memories by relevance",
-			BackendTool:   "search_user_memories",
-			RequiresFlags: "--query ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:         "core",
-			Short:       "Fetch the user's core remembered preferences",
-			BackendTool: "fetch_core_user_memories",
-		}),
-	)
-
-	skillsCmd := newToolGroup("skills", "Skill metadata and asset tools")
-	skillsCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{
-			Use:           "read-asset",
-			Short:         "Read a file bundled inside a skill",
-			BackendTool:   "read_skill_asset",
-			RequiresFlags: "--skill ... --path ...",
-		}),
-		newStubToolCommand(stubToolSpec{
-			Use:           "read-tool",
-			Short:         "Read skill metadata and usage instructions",
-			BackendTool:   "read_skill_tool",
-			RequiresFlags: "--skill ... --tool ...",
-		}),
-	)
-
-	rawCmd := newToolGroup("raw", "Raw backend tool-name compatibility commands")
-	rawCmd.AddCommand(
-		newStubToolCommand(stubToolSpec{Use: "fetch_meetings", Short: "Fetch meetings across accounts and date ranges", BackendTool: "fetch_meetings", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "entity_lookup", Short: "Look up entities from natural-language user queries", BackendTool: "entity_lookup", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_my_meetings", Short: "Fetch the current user's meetings and details", BackendTool: "fetch_my_meetings", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "summarize_earnings_calls", Short: "Summarize earnings calls for relevant companies", BackendTool: "summarize_earnings_calls", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_whole_document_by_id", Short: "Retrieve full document contents by document ID", BackendTool: "fetch_whole_document_by_id", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "load_person_details", Short: "Load detailed profile data for a person", BackendTool: "load_person_details", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "find_person", Short: "Find a person by name, email, or context", BackendTool: "find_person", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_people_at_company", Short: "Search for people associated with a company", BackendTool: "search_people_at_company", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "interaction_history", Short: "Summarize historical interactions for accounts or topics", BackendTool: "interaction_history", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_slack_messages", Short: "Fetch Slack messages related to an account", BackendTool: "fetch_slack_messages", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_salesforce_notes", Short: "Fetch Salesforce notes tied to account activity", BackendTool: "fetch_salesforce_notes", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_all_text_document_facts", Short: "Search extracted facts across text documents", BackendTool: "search_all_text_document_facts", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_wiki_articles", Short: "Search synthesized wiki articles about customers and topics", BackendTool: "search_wiki_articles", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_structured_datasets", Short: "Search available structured datasets by intent", BackendTool: "search_structured_datasets", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "structured_dataset_loader_from_user_query", Short: "Load structured data from a user query", BackendTool: "structured_dataset_loader_from_user_query", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_knowledge_documents", Short: "Fetch matching knowledge documents for a topic", BackendTool: "fetch_knowledge_documents", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_vendor_knowledge_documents", Short: "Search vendor knowledge documents for answers", BackendTool: "search_vendor_knowledge_documents", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "serpapi_google_search", Short: "Run a Google web search via SerpAPI", BackendTool: "serpapi_google_search", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "serpapi_google_news", Short: "Run a Google News search via SerpAPI", BackendTool: "serpapi_google_news", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "company_research_tool", Short: "Research companies using external web sources", BackendTool: "company_research_tool", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "find_accounts_for_user", Short: "Find accounts associated with a user", BackendTool: "find_accounts_for_user", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "search_user_memories", Short: "Search stored user memories by relevance", BackendTool: "search_user_memories", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "fetch_core_user_memories", Short: "Fetch the user's core remembered preferences", BackendTool: "fetch_core_user_memories", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "read_skill_asset", Short: "Read a file bundled inside a skill", BackendTool: "read_skill_asset", Hidden: true}),
-		newStubToolCommand(stubToolSpec{Use: "read_skill_tool", Short: "Read skill metadata and usage instructions", BackendTool: "read_skill_tool", Hidden: true}),
-	)
-
 	toolsCmd.AddCommand(
-		meetingsCmd,
-		peopleCmd,
-		accountsCmd,
-		interactionsCmd,
-		documentsCmd,
-		datasetsCmd,
-		slackCmd,
-		salesforceCmd,
-		companiesCmd,
-		webCmd,
-		wikiCmd,
-		memoriesCmd,
-		skillsCmd,
-		rawCmd,
+		newDocumentsKnowledgeCommandWithName("fetch_knowledge_documents"),
+		newDocumentsFetchCommandWithName("get_document"),
+		newDocumentsVendorKnowledgeCommandWithName("search_vendor_documents"),
+		newStubToolCommand(stubToolSpec{Use: "find_account_person", Short: "Find a specific person within an account", BackendTool: "find_account_person", RequiresFlags: `{"account_id":"001...","search_query":"Sarah Chen"}`}),
+		newStubToolCommand(stubToolSpec{Use: "find_accounts", Short: "Find accounts for a user or list an account roster", BackendTool: "find_accounts", RequiresFlags: `{"user_id":"005..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "find_person", Short: "Find a specific person by name, email, or ID", BackendTool: "find_person", RequiresFlags: `{"search_query":"Sarah Chen"}`}),
+		newStubToolCommand(stubToolSpec{Use: "find_relevant_documents", Short: "Find vendor documents relevant to a user message", BackendTool: "find_relevant_documents", RequiresFlags: `{"user_message":"prep me for the Acme security review"}`}),
+		newStubToolCommand(stubToolSpec{Use: "get_account_interaction_history", Short: "Get interaction history for a specific account", BackendTool: "get_account_interaction_history", RequiresFlags: `{"account_id":"001...","output":"summary"}`}),
+		newStubToolCommand(stubToolSpec{Use: "get_account_person_details", Short: "Get detailed people data for a specific account", BackendTool: "get_account_person_details", RequiresFlags: `{"account_id":"001...","person_ids":"guid-1,guid-2"}`}),
+		newStubToolCommand(stubToolSpec{Use: "get_interaction_history", Short: "Get interaction history across accounts", BackendTool: "get_interaction_history", RequiresFlags: `{"account_ids":["001..."],"output":"summary"}`}),
+		newStubToolCommand(stubToolSpec{Use: "get_person_details", Short: "Load detailed profile data for one or more people", BackendTool: "get_person_details", RequiresFlags: `{"person_ids":"guid-1,guid-2"}`}),
+		newStubToolCommand(stubToolSpec{Use: "get_user_preferences", Short: "Fetch the current user's core preferences", BackendTool: "get_user_preferences"}),
+		newStubToolCommand(stubToolSpec{Use: "news_search", Short: "Run a Google News search", BackendTool: "news_search", RequiresFlags: `{"query":"Acme funding"}`}),
+		newStubToolCommand(stubToolSpec{Use: "query_data", Short: "Query warehouse data with natural language", BackendTool: "query_data", RequiresFlags: `{"messages":[{"user_message":"show top 10 accounts by ARR"}]}`}),
+		newStubToolCommand(stubToolSpec{Use: "query_dataset", Short: "Query uploaded datasets with natural language", BackendTool: "query_dataset", RequiresFlags: `{"user_message":"top 10 accounts by deal size"}`}),
+		newStubToolCommand(stubToolSpec{Use: "research_company", Short: "Research a company using external sources", BackendTool: "research_company", RequiresFlags: `{"company_name":"Acme"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_document_insights", Short: "Search extracted facts for a specific account", BackendTool: "search_account_document_insights", RequiresFlags: `{"account_id":"001...","search_sentences":["security questionnaire"]}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_knowledge_articles", Short: "Search synthesized knowledge articles for a specific account", BackendTool: "search_account_knowledge_articles", RequiresFlags: `{"account_id":"001...","search_query":"renewal risks"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_knowledge_documents", Short: "List account-specific knowledge documents", BackendTool: "search_account_knowledge_documents", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_meetings", Short: "Search meetings for a specific account", BackendTool: "search_account_meetings", RequiresFlags: `{"account_id":"001...","start_date":"2026-04-01","end_date":"2026-04-30"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_people", Short: "Browse people for a specific account", BackendTool: "search_account_people", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_salesforce_notes", Short: "Search Salesforce notes for a specific account", BackendTool: "search_account_salesforce_notes", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_account_slack_messages", Short: "Search Slack messages for a specific account", BackendTool: "search_account_slack_messages", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_datasets", Short: "Search available structured datasets", BackendTool: "search_datasets", RequiresFlags: `{"query":"renewals dataset"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_document_insights", Short: "Search extracted facts across all document sources", BackendTool: "search_document_insights", RequiresFlags: `{"search_sentences":["security questionnaire","redlines"]}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_knowledge_articles", Short: "Search synthesized customer knowledge articles", BackendTool: "search_knowledge_articles", RequiresFlags: `{"search_query":"renewal risks"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_meetings", Short: "Search meetings across the organization", BackendTool: "search_meetings", RequiresFlags: `{"account_ids":["001..."],"start_date":"2026-04-01","end_date":"2026-04-30"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_my_meetings", Short: "Search the current user's meetings", BackendTool: "search_my_meetings", RequiresFlags: `{"account_ids":["001..."],"start_date":"2026-04-01","end_date":"2026-04-30"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_people", Short: "Browse and filter people at an account", BackendTool: "search_people", RequiresFlags: `{"account_id":"001...","areas":["crm_contacts"]}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_salesforce_notes", Short: "Fetch Salesforce notes for an account", BackendTool: "search_salesforce_notes", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_slack_messages", Short: "Fetch Slack messages for an account", BackendTool: "search_slack_messages", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_user_preferences", Short: "Search the current user's contextual memories", BackendTool: "search_user_preferences", RequiresFlags: `{"query":"pricing preferences"}`}),
+		newStubToolCommand(stubToolSpec{Use: "summarize_account_earnings_calls", Short: "Summarize earnings calls for a specific account", BackendTool: "summarize_account_earnings_calls", RequiresFlags: `{"account_id":"001..."}`}),
+		newStubToolCommand(stubToolSpec{Use: "summarize_earnings_calls", Short: "Summarize earnings calls across accounts", BackendTool: "summarize_earnings_calls", RequiresFlags: `{"account_ids":["001..."]}`}),
+		newStubToolCommand(stubToolSpec{Use: "web_search", Short: "Run a public web search", BackendTool: "web_search", RequiresFlags: `{"query":"Acme pricing page"}`}),
 	)
 }

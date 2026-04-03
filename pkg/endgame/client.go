@@ -6,18 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Endgame-Labs/endgame-cli/pkg/buildinfo"
 )
 
-const BaseURL = "https://app.endgame.io/api/bridges"
+const BaseURL = "https://app.endgame.io/api/v1/mcp"
 
 type Client struct {
-	apiKey string
-	orgID  string
 	reqID  int
 	client *http.Client
 }
@@ -25,6 +26,15 @@ type Client struct {
 type Tool struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+}
+
+type ToolCallContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type ToolCallResponse struct {
+	Content []ToolCallContent `json:"content"`
 }
 
 type PromptResult struct {
@@ -41,32 +51,19 @@ type rpcEnvelope struct {
 	} `json:"error"`
 }
 
-type toolCallResult struct {
-	Content []struct {
-		Text string `json:"text"`
-	} `json:"content"`
-}
-
-func NewClient(apiKey, orgID string) (*Client, error) {
-	apiKey = strings.TrimSpace(apiKey)
-	orgID = strings.TrimSpace(orgID)
-
-	switch {
-	case apiKey == "":
-		return nil, errors.New("ENDGAME_API_KEY is required")
-	case orgID == "":
-		return nil, errors.New("ENDGAME_ORG_ID is required")
+func NewClient(httpClient *http.Client) (*Client, error) {
+	if httpClient == nil {
+		return nil, errors.New("http client is required")
 	}
-
 	timeout, err := getTimeout()
 	if err != nil {
 		return nil, err
 	}
 
+	httpClient.Timeout = timeout
+
 	return &Client{
-		apiKey: apiKey,
-		orgID:  orgID,
-		client: &http.Client{Timeout: timeout},
+		client: httpClient,
 	}, nil
 }
 
@@ -82,12 +79,8 @@ func getTimeout() (time.Duration, error) {
 	return timeout, nil
 }
 
-func (c *Client) OrgID() string {
-	return c.orgID
-}
-
 func (c *Client) endpoint() string {
-	return fmt.Sprintf("%s/%s/mcp", BaseURL, c.orgID)
+	return BaseURL
 }
 
 func (c *Client) nextID() int {
@@ -116,7 +109,6 @@ func (c *Client) Call(method string, params any) (json.RawMessage, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -130,31 +122,31 @@ func (c *Client) Call(method string, params any) (json.RawMessage, error) {
 		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, strings.TrimSpace(buf.String()))
 	}
 
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
+	if strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		result, err := readSSEResult(resp.Body)
+		if err != nil {
+			return nil, err
 		}
-
-		payload := strings.TrimPrefix(line, "data: ")
-		var rpcResp rpcEnvelope
-		if err := json.Unmarshal([]byte(payload), &rpcResp); err != nil {
-			continue
-		}
-		if rpcResp.Error != nil {
-			return nil, fmt.Errorf("rpc error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
-		}
-		if rpcResp.Result != nil {
-			return rpcResp.Result, nil
-		}
+		return result, nil
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("read sse stream: %w", err)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
-	return nil, errors.New("no result in SSE stream")
+	var rpcResp rpcEnvelope
+	if err := json.Unmarshal(body, &rpcResp); err != nil {
+		return nil, fmt.Errorf("decode response body: %w", err)
+	}
+	if rpcResp.Error != nil {
+		return nil, fmt.Errorf("rpc error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
+	}
+	if rpcResp.Result == nil {
+		return nil, errors.New("no result in response body")
+	}
+
+	return rpcResp.Result, nil
 }
 
 func (c *Client) Initialize() error {
@@ -163,7 +155,7 @@ func (c *Client) Initialize() error {
 		"capabilities":    map[string]any{},
 		"clientInfo": map[string]string{
 			"name":    "endgame-cli",
-			"version": "0.1.0",
+			"version": buildinfo.Version,
 		},
 	})
 	return err
@@ -191,15 +183,7 @@ func (c *Client) SubmitPrompt(question, threadID string) (*PromptResult, error) 
 		arguments["threadId"] = threadID
 	}
 
-	result, err := c.Call("tools/call", map[string]any{
-		"name":      "prompt_endgame",
-		"arguments": arguments,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	parsed, err := decodeToolCallResult(result)
+	parsed, err := c.CallTool("prompt_endgame", arguments)
 	if err != nil {
 		return nil, err
 	}
@@ -228,15 +212,7 @@ func (c *Client) SubmitPrompt(question, threadID string) (*PromptResult, error) 
 }
 
 func (c *Client) Followup(opID string) (string, string, error) {
-	result, err := c.Call("tools/call", map[string]any{
-		"name":      "message_followup",
-		"arguments": map[string]string{"operationId": opID},
-	})
-	if err != nil {
-		return "", "", err
-	}
-
-	parsed, err := decodeToolCallResult(result)
+	parsed, err := c.CallTool("message_followup", map[string]string{"operationId": opID})
 	if err != nil {
 		return "", "", err
 	}
@@ -265,8 +241,16 @@ func (c *Client) Followup(opID string) (string, string, error) {
 	return "unknown", "", nil
 }
 
-func decodeToolCallResult(result json.RawMessage) (*toolCallResult, error) {
-	var parsed toolCallResult
+func (c *Client) CallTool(name string, arguments any) (*ToolCallResponse, error) {
+	result, err := c.Call("tools/call", map[string]any{
+		"name":      name,
+		"arguments": arguments,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var parsed ToolCallResponse
 	if err := json.Unmarshal(result, &parsed); err != nil {
 		return nil, fmt.Errorf("decode tool call result: %w", err)
 	}
@@ -289,4 +273,40 @@ func WaitForCompletion(client *Client, opID string, maxPolls int, delay time.Dur
 	}
 
 	return "", fmt.Errorf("operation %s did not complete after %d polls", opID, maxPolls)
+}
+
+func readSSEResult(body io.Reader) (json.RawMessage, error) {
+	reader := bufio.NewReader(body)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("read sse stream: %w", err)
+		}
+
+		line = strings.TrimRight(line, "\r\n")
+		if !strings.HasPrefix(line, "data: ") {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			continue
+		}
+
+		payload := strings.TrimPrefix(line, "data: ")
+		var rpcResp rpcEnvelope
+		if err := json.Unmarshal([]byte(payload), &rpcResp); err != nil {
+			continue
+		}
+		if rpcResp.Error != nil {
+			return nil, fmt.Errorf("rpc error %d: %s", rpcResp.Error.Code, rpcResp.Error.Message)
+		}
+		if rpcResp.Result != nil {
+			return rpcResp.Result, nil
+		}
+
+		if errors.Is(err, io.EOF) {
+			break
+		}
+	}
+
+	return nil, errors.New("no result in SSE stream")
 }

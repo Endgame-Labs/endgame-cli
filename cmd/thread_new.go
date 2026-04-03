@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/Endgame-Labs/endgame-cli/pkg/auth"
-	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +16,7 @@ var threadNewCmd = &cobra.Command{
 			return err
 		}
 
-		apiKey, orgID, err := auth.LoadCredentials()
-		if err != nil {
-			return err
-		}
-
-		client, err := endgame.NewClient(apiKey, orgID)
+		client, err := auth.NewClient()
 		if err != nil {
 			return err
 		}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Endgame-Labs/endgame-cli/pkg/auth"
-	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
 	"github.com/spf13/cobra"
 )
 
@@ -13,12 +12,7 @@ var threadFollowupCmd = &cobra.Command{
 	Short: "Fetch the latest status for an existing operation",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		apiKey, orgID, err := auth.LoadCredentials()
-		if err != nil {
-			return err
-		}
-
-		client, err := endgame.NewClient(apiKey, orgID)
+		client, err := auth.NewClient()
 		if err != nil {
 			return err
 		}

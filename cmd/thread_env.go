@@ -12,8 +12,8 @@ var threadEnvCmd = &cobra.Command{
 	Short: "Show required environment variables",
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = args
-		fmt.Fprintln(cmd.OutOrStdout(), "ENDGAME_API_KEY")
-		fmt.Fprintln(cmd.OutOrStdout(), "ENDGAME_ORG_ID")
+		fmt.Fprintln(cmd.OutOrStdout(), "No required auth environment variables.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Use `endgame auth login` for browser-based OAuth.")
 		if timeout := os.Getenv("ENDGAME_TIMEOUT_SECONDS"); timeout != "" {
 			fmt.Fprintf(cmd.OutOrStdout(), "ENDGAME_TIMEOUT_SECONDS=%s\n", timeout)
 		}

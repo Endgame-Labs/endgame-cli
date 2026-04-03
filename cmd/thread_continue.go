@@ -25,12 +25,7 @@ var threadContinueCmd = &cobra.Command{
 			return fmt.Errorf("--thread-id is required")
 		}
 
-		apiKey, orgID, err := auth.LoadCredentials()
-		if err != nil {
-			return err
-		}
-
-		client, err := endgame.NewClient(apiKey, orgID)
+		client, err := auth.NewClient()
 		if err != nil {
 			return err
 		}
