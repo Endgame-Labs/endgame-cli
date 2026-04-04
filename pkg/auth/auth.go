@@ -33,9 +33,9 @@ const (
 var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
 
 var directDeviceProvider = deviceProviderConfig{
-	ClientID:  "client_01K0CCK4E3M8E6WQ9ETH3DQP8D",
-	DeviceURL: "https://api.workos.com/user_management/authorize/device",
-	TokenURL:  "https://api.workos.com/user_management/authenticate",
+	ClientID:  "client_01KND957HR1X14Q1X80TK3FPQB",
+	DeviceURL: "https://login.endgame.io/oauth2/device_authorization",
+	TokenURL:  "https://login.endgame.io/oauth2/token",
 }
 
 type Config struct {
