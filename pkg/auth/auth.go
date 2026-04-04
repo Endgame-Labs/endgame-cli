@@ -295,6 +295,13 @@ func Login(options LoginOptions) error {
 		return err
 	}
 
+	if email := emailFromOAuthToken(token); email != "" {
+		fmt.Printf("Authenticated as %s\n", email)
+	}
+	if prefix := tokenPrefix(token.AccessToken, 5); prefix != "" {
+		fmt.Printf("Access token: %s...\n", prefix)
+	}
+
 	status, err := Verify()
 	if err != nil {
 		return fmt.Errorf("authenticated but MCP verification failed: %w", err)
@@ -339,6 +346,9 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 
 	if strings.TrimSpace(email) != "" {
 		fmt.Printf("Authenticated as %s\n", email)
+	}
+	if prefix := tokenPrefix(token.AccessToken, 5); prefix != "" {
+		fmt.Printf("Access token: %s...\n", prefix)
 	}
 
 	config := Config{
@@ -886,6 +896,42 @@ func emailFromIDToken(idToken string) string {
 		return strings.TrimSpace(claims.Email)
 	}
 	return strings.TrimSpace(claims.Sub)
+}
+
+func tokenPrefix(token string, size int) string {
+	token = strings.TrimSpace(token)
+	if token == "" || size <= 0 {
+		return ""
+	}
+	if len(token) <= size {
+		return token
+	}
+	return token[:size]
+}
+
+func emailFromOAuthToken(token *oauth2.Token) string {
+	if token == nil {
+		return ""
+	}
+	if email := emailFromIDToken(extraString(token, "id_token")); email != "" {
+		return email
+	}
+	if claims, err := parseTokenClaims(token.AccessToken); err == nil && strings.TrimSpace(claims.Email) != "" {
+		return strings.TrimSpace(claims.Email)
+	}
+	return ""
+}
+
+func extraString(token *oauth2.Token, key string) string {
+	if token == nil {
+		return ""
+	}
+	value := token.Extra(key)
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(text)
 }
 
 func startCallbackServer(listener net.Listener, expectedState string, callbackCh chan<- callbackResult) *http.Server {
