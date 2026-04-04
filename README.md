@@ -27,21 +27,30 @@ endgame version
 Authenticate:
 
 ```bash
+endgame auth
 endgame auth login
 endgame auth status
 ```
 
-Manual remote login:
+`endgame auth` and `endgame auth login` now prompt for a login method when run interactively:
+
+- browser login on this machine
+- device-code login for a remote or separate browser session
+
+You can also select the mode explicitly:
 
 ```bash
-endgame auth login --no-browser --callback-port 8788
+endgame auth login --mode browser
+endgame auth login --mode device
 ```
 
-Then open the printed URL in a browser. If the CLI is running on a remote server, forward the callback port first:
+If the CLI is running on a remote server and you use browser mode, forward the callback port first:
 
 ```bash
 ssh -L 8788:127.0.0.1:8788 <server>
 ```
+
+Then run `endgame auth login --mode browser --callback-port 8788`.
 
 List available MCP tools:
 
@@ -66,15 +75,16 @@ echo '{"query":"pricing preferences"}' | endgame tools search_user_preferences
 
 ## Auth
 
-Authentication is browser-based OAuth against the public Endgame auth server.
+Authentication uses OAuth against the public Endgame auth server.
 
-- `endgame auth login` discovers metadata from `https://app.endgame.io/.well-known/oauth-authorization-server`
+- `endgame auth` prompts for browser login or device-code login when run in an interactive terminal
+- `endgame auth login --mode browser|device` selects the login flow explicitly
+- browser login discovers metadata from `https://app.endgame.io/.well-known/oauth-authorization-server`
 - the CLI dynamically registers a public OAuth client
-- login completes with authorization code + PKCE on a localhost callback
+- browser login completes with authorization code + PKCE on a localhost callback
+- device login uses the direct WorkOS device authorization flow
 - refreshable OAuth tokens are stored in `~/.endgame-auth.json`
 - `endgame auth status` verifies the saved token set against MCP
-
-The auth server currently supports `authorization_code` and `refresh_token`, not OAuth device authorization. `--no-browser` is manual PKCE mode that prints the URL instead of opening a browser.
 
 There are no required auth environment variables. `endgame thread env` reports `ENDGAME_TIMEOUT_SECONDS` when set.
 
