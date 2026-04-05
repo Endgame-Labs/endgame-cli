@@ -32,7 +32,7 @@ endgame auth login
 endgame auth status
 ```
 
-`endgame auth` and `endgame auth login` now prompt for a login method when run interactively:
+`endgame auth` and `endgame auth login` prompt for a login method when run interactively:
 
 - browser login on this machine
 - device-code login for a remote or separate browser session
