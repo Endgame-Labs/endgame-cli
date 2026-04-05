@@ -15,6 +15,7 @@
 coverage.out
 *.coverprofile
 *.prof
+*.log
 
 # Dependency and workspace files
 vendor/
