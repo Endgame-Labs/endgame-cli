@@ -17,6 +17,7 @@ This repository is safe to use from agent-driven workflows, but there are a few 
 - On each authenticated invocation, the CLI reuses the cached access token if it still has enough lifetime left.
 - The refresh window is 2 minutes before expiry.
 - If `expires_in` is missing, the CLI derives expiry from the JWT `exp` claim.
+- When refresh returns a rotated refresh token, the CLI persists the updated token set back to disk.
 - If MCP returns `401 invalid_token`, the CLI forces one refresh and retries once.
 
 This is designed for agent-heavy workloads where the CLI may be called many times in a short burst:

@@ -92,8 +92,11 @@ For repeated CLI use, including agent-heavy workflows, the CLI does not refresh 
 - it reuses the cached access token until it is within a 2 minute refresh window
 - if `expires_in` is missing, it derives expiry from the JWT `exp` claim
 - if the token is near expiry, it refreshes once before the request
+- refresh token rotation is persisted back to `~/.endgame-auth.json`
 - if MCP returns `401 invalid_token`, it forces one refresh and retries once
 - login fails immediately if no refresh token is returned, instead of saving a token set that will break later
+
+This was soak-tested with repeated authenticated CLI queries over 30 minutes, including crossing the original access-token expiry boundary and observing successful token rotation on disk.
 
 There are no required auth environment variables. `endgame thread env` reports `ENDGAME_TIMEOUT_SECONDS` when set.
 

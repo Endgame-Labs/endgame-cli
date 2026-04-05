@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
@@ -28,6 +29,7 @@ const (
 	authServerMetadataURL  = "https://app.endgame.io/.well-known/oauth-authorization-server"
 	defaultAuthTimeout     = 5 * time.Minute
 	defaultOAuthClientName = "endgame-cli"
+	tokenRefreshWindow     = 2 * time.Minute
 )
 
 var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
@@ -98,6 +100,7 @@ type callbackResult struct {
 
 type tokenClaims struct {
 	Email string `json:"email"`
+	Exp   int64  `json:"exp"`
 	Org   struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -294,11 +297,14 @@ func Login(options LoginOptions) error {
 	if err := Save(config); err != nil {
 		return err
 	}
+	if strings.TrimSpace(token.RefreshToken) == "" {
+		return errors.New("login succeeded but no refresh token was returned; check offline_access / refresh-token configuration")
+	}
 
 	if email := emailFromOAuthToken(token); email != "" {
 		fmt.Printf("Authenticated as %s\n", email)
 	}
-	if prefix := tokenPrefix(token.AccessToken, 5); prefix != "" {
+	if prefix := tokenPrefix(token.AccessToken, 3); prefix != "" {
 		fmt.Printf("Access token: %s...\n", prefix)
 	}
 
@@ -347,8 +353,11 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 	if strings.TrimSpace(email) != "" {
 		fmt.Printf("Authenticated as %s\n", email)
 	}
-	if prefix := tokenPrefix(token.AccessToken, 5); prefix != "" {
+	if prefix := tokenPrefix(token.AccessToken, 3); prefix != "" {
 		fmt.Printf("Access token: %s...\n", prefix)
+	}
+	if strings.TrimSpace(token.RefreshToken) == "" {
+		return errors.New("device login succeeded but no refresh token was returned; check offline_access / refresh-token configuration")
 	}
 
 	config := Config{
@@ -444,7 +453,12 @@ func NewHTTPClient() (*http.Client, error) {
 		return nil, err
 	}
 
-	httpClient := oauth2.NewClient(ctx, source)
+	httpClient := &http.Client{
+		Transport: &authTransport{
+			Base:   http.DefaultTransport,
+			Source: source,
+		},
+	}
 	httpClient.Timeout = timeout
 	return httpClient, nil
 }
@@ -485,20 +499,33 @@ func newTokenSource(ctx context.Context, config *Config) (oauth2.TokenSource, er
 		},
 	}
 
-	base := oauthConfig.TokenSource(ctx, configToToken(config.OAuth.Token))
 	return &persistingTokenSource{
-		base:   oauth2.ReuseTokenSource(configToToken(config.OAuth.Token), base),
-		config: config,
+		ctx:     ctx,
+		config:  config,
+		oauth:   oauthConfig,
+		current: configToToken(config.OAuth.Token),
 	}, nil
 }
 
 type persistingTokenSource struct {
-	base   oauth2.TokenSource
-	config *Config
+	ctx     context.Context
+	config  *Config
+	oauth   *oauth2.Config
+	current *oauth2.Token
+	mu      sync.Mutex
 }
 
 func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
-	token, err := p.base.Token()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	token := ensureTokenExpiry(cloneToken(p.current))
+	if token != nil && token.AccessToken != "" && !expiresSoon(token, tokenRefreshWindow) {
+		p.current = token
+		return cloneToken(token), nil
+	}
+
+	token, err := p.refreshLocked(token, false)
 	if err != nil {
 		return nil, err
 	}
@@ -513,7 +540,131 @@ func (p *persistingTokenSource) Token() (*oauth2.Token, error) {
 		return nil, err
 	}
 
-	return token, nil
+	return cloneToken(token), nil
+}
+
+func (p *persistingTokenSource) ForceRefresh() (*oauth2.Token, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	token, err := p.refreshLocked(ensureTokenExpiry(cloneToken(p.current)), true)
+	if err != nil {
+		return nil, err
+	}
+
+	newToken := tokenToConfig(token)
+	if !tokensEqual(p.config.OAuth.Token, newToken) {
+		p.config.OAuth.Token = newToken
+		if err := Save(*p.config); err != nil {
+			return nil, err
+		}
+	}
+
+	return cloneToken(token), nil
+}
+
+func (p *persistingTokenSource) refreshLocked(token *oauth2.Token, force bool) (*oauth2.Token, error) {
+	token = ensureTokenExpiry(token)
+	if token == nil {
+		return nil, errors.New("not authenticated")
+	}
+
+	refreshInput := cloneToken(token)
+	if force {
+		refreshInput.Expiry = time.Now().Add(-time.Second)
+	} else if refreshInput.Expiry.IsZero() && strings.TrimSpace(refreshInput.RefreshToken) != "" {
+		refreshInput.Expiry = time.Now().Add(-time.Second)
+	}
+
+	refreshed, err := p.oauth.TokenSource(p.ctx, refreshInput).Token()
+	if err != nil {
+		return nil, err
+	}
+	refreshed = ensureTokenExpiry(refreshed)
+	p.current = cloneToken(refreshed)
+	return cloneToken(refreshed), nil
+}
+
+type forceRefreshTokenSource interface {
+	oauth2.TokenSource
+	ForceRefresh() (*oauth2.Token, error)
+}
+
+type authTransport struct {
+	Base   http.RoundTripper
+	Source oauth2.TokenSource
+}
+
+func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	token, err := t.Source.Token()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := t.roundTripWithToken(req, token)
+	if err != nil {
+		return nil, err
+	}
+	if !shouldRetryInvalidToken(resp) {
+		return resp, nil
+	}
+	resp.Body.Close()
+
+	refreshable, ok := t.Source.(forceRefreshTokenSource)
+	if !ok {
+		return resp, nil
+	}
+
+	refreshed, err := refreshable.ForceRefresh()
+	if err != nil {
+		return nil, err
+	}
+
+	return t.roundTripWithToken(req, refreshed)
+}
+
+func (t *authTransport) roundTripWithToken(req *http.Request, token *oauth2.Token) (*http.Response, error) {
+	req2, err := cloneRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	token.SetAuthHeader(req2)
+	return t.base().RoundTrip(req2)
+}
+
+func (t *authTransport) base() http.RoundTripper {
+	if t.Base != nil {
+		return t.Base
+	}
+	return http.DefaultTransport
+}
+
+func cloneRequest(req *http.Request) (*http.Request, error) {
+	req2 := req.Clone(req.Context())
+	if req.Body == nil {
+		return req2, nil
+	}
+	if req.GetBody == nil {
+		return nil, errors.New("request body is not replayable")
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return nil, err
+	}
+	req2.Body = body
+	return req2, nil
+}
+
+func shouldRetryInvalidToken(resp *http.Response) bool {
+	if resp == nil || resp.StatusCode != http.StatusUnauthorized || resp.Body == nil {
+		return false
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false
+	}
+	resp.Body = io.NopCloser(strings.NewReader(string(body)))
+	return strings.Contains(strings.ToLower(string(body)), "invalid_token")
 }
 
 func discoverAuthServerMetadata(ctx context.Context) (*authServerMetadata, error) {
@@ -681,6 +832,7 @@ func startDeviceAuthorization(ctx context.Context, metadata *authServerMetadata,
 func startDirectDeviceAuthorization(ctx context.Context, provider deviceProviderConfig) (*deviceAuthorizationResponse, error) {
 	form := url.Values{}
 	form.Set("client_id", provider.ClientID)
+	form.Set("scope", strings.Join(oauthScopes, " "))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, provider.DeviceURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -1022,6 +1174,7 @@ func randomString(size int) (string, error) {
 }
 
 func tokenToConfig(token *oauth2.Token) OAuthToken {
+	token = ensureTokenExpiry(token)
 	return OAuthToken{
 		AccessToken:  token.AccessToken,
 		TokenType:    token.TokenType,
@@ -1031,12 +1184,12 @@ func tokenToConfig(token *oauth2.Token) OAuthToken {
 }
 
 func configToToken(token OAuthToken) *oauth2.Token {
-	return &oauth2.Token{
+	return ensureTokenExpiry(&oauth2.Token{
 		AccessToken:  token.AccessToken,
 		TokenType:    token.TokenType,
 		RefreshToken: token.RefreshToken,
 		Expiry:       token.Expiry,
-	}
+	})
 }
 
 func tokensEqual(left, right OAuthToken) bool {
@@ -1056,4 +1209,36 @@ func getTimeout() (time.Duration, error) {
 		timeout = time.Duration(timeoutSeconds) * time.Second
 	}
 	return timeout, nil
+}
+
+func ensureTokenExpiry(token *oauth2.Token) *oauth2.Token {
+	if token == nil {
+		return nil
+	}
+	if !token.Expiry.IsZero() {
+		return token
+	}
+	if claims, err := parseTokenClaims(token.AccessToken); err == nil && claims.Exp > 0 {
+		token.Expiry = time.Unix(claims.Exp, 0)
+	}
+	return token
+}
+
+func expiresSoon(token *oauth2.Token, window time.Duration) bool {
+	token = ensureTokenExpiry(token)
+	if token == nil || token.AccessToken == "" {
+		return true
+	}
+	if token.Expiry.IsZero() {
+		return false
+	}
+	return time.Now().Add(window).After(token.Expiry)
+}
+
+func cloneToken(token *oauth2.Token) *oauth2.Token {
+	if token == nil {
+		return nil
+	}
+	copy := *token
+	return &copy
 }
