@@ -82,9 +82,18 @@ Authentication uses OAuth against the public Endgame auth server.
 - browser login discovers metadata from `https://app.endgame.io/.well-known/oauth-authorization-server`
 - the CLI dynamically registers a public OAuth client
 - browser login completes with authorization code + PKCE on a localhost callback
-- device login uses the direct WorkOS device authorization flow
+- device login uses the production Connect device flow on `https://login.endgame.io/oauth2/device_authorization`
+- device login requests `openid profile email offline_access`
 - refreshable OAuth tokens are stored in `~/.endgame-auth.json`
 - `endgame auth status` verifies the saved token set against MCP
+
+For repeated CLI use, including agent-heavy workflows, the CLI does not refresh on every command and does not run a background daemon:
+
+- it reuses the cached access token until it is within a 2 minute refresh window
+- if `expires_in` is missing, it derives expiry from the JWT `exp` claim
+- if the token is near expiry, it refreshes once before the request
+- if MCP returns `401 invalid_token`, it forces one refresh and retries once
+- login fails immediately if no refresh token is returned, instead of saving a token set that will break later
 
 There are no required auth environment variables. `endgame thread env` reports `ENDGAME_TIMEOUT_SECONDS` when set.
 
