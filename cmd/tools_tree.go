@@ -5,37 +5,39 @@ func init() {
 		newDocumentsKnowledgeCommandWithName("fetch_knowledge_documents"),
 		newDocumentsFetchCommandWithName("get_document"),
 		newDocumentsVendorKnowledgeCommandWithName("search_vendor_documents"),
-		newStubToolCommand(stubToolSpec{Use: "find_account_person", Short: "Find a specific person within an account", BackendTool: "find_account_person", RequiresFlags: `{"account_id":"001...","search_query":"Sarah Chen"}`}),
-		newStubToolCommand(stubToolSpec{Use: "find_accounts", Short: "Find accounts for a user or list an account roster", BackendTool: "find_accounts", RequiresFlags: `{"user_id":"005..."}`}),
+
+		// --- People ---
 		newStubToolCommand(stubToolSpec{Use: "find_person", Short: "Find a specific person by name, email, or ID", BackendTool: "find_person", RequiresFlags: `{"search_query":"Sarah Chen"}`}),
-		newStubToolCommand(stubToolSpec{Use: "find_relevant_documents", Short: "Find vendor documents relevant to a user message", BackendTool: "find_relevant_documents", RequiresFlags: `{"user_message":"prep me for the Acme security review"}`}),
-		newStubToolCommand(stubToolSpec{Use: "get_account_interaction_history", Short: "Get interaction history for a specific account", BackendTool: "get_account_interaction_history", RequiresFlags: `{"account_id":"001...","output":"summary"}`}),
-		newStubToolCommand(stubToolSpec{Use: "get_account_person_details", Short: "Get detailed people data for a specific account", BackendTool: "get_account_person_details", RequiresFlags: `{"account_id":"001...","person_ids":"guid-1,guid-2"}`}),
-		newStubToolCommand(stubToolSpec{Use: "get_interaction_history", Short: "Get interaction history across accounts", BackendTool: "get_interaction_history", RequiresFlags: `{"account_ids":["001..."],"output":"summary"}`}),
 		newStubToolCommand(stubToolSpec{Use: "get_person_details", Short: "Load detailed profile data for one or more people", BackendTool: "get_person_details", RequiresFlags: `{"person_ids":"guid-1,guid-2"}`}),
-		newStubToolCommand(stubToolSpec{Use: "get_user_preferences", Short: "Fetch the current user's core preferences", BackendTool: "get_user_preferences"}),
-		newStubToolCommand(stubToolSpec{Use: "news_search", Short: "Run a Google News search", BackendTool: "news_search", RequiresFlags: `{"query":"Acme funding"}`}),
-		newStubToolCommand(stubToolSpec{Use: "query_data", Short: "Query warehouse data with natural language", BackendTool: "query_data", RequiresFlags: `{"messages":[{"user_message":"show top 10 accounts by ARR"}]}`}),
-		newStubToolCommand(stubToolSpec{Use: "query_dataset", Short: "Query uploaded datasets with natural language", BackendTool: "query_dataset", RequiresFlags: `{"user_message":"top 10 accounts by deal size"}`}),
-		newStubToolCommand(stubToolSpec{Use: "research_company", Short: "Research a company using external sources", BackendTool: "research_company", RequiresFlags: `{"company_name":"Acme"}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_document_insights", Short: "Search extracted facts for a specific account", BackendTool: "search_account_document_insights", RequiresFlags: `{"account_id":"001...","search_sentences":["security questionnaire"]}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_knowledge_articles", Short: "Search synthesized knowledge articles for a specific account", BackendTool: "search_account_knowledge_articles", RequiresFlags: `{"account_id":"001...","search_query":"renewal risks"}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_knowledge_documents", Short: "List account-specific knowledge documents", BackendTool: "search_account_knowledge_documents", RequiresFlags: `{"account_id":"001..."}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_meetings", Short: "Search meetings for a specific account", BackendTool: "search_account_meetings", RequiresFlags: `{"account_id":"001...","start_date":"2026-04-01","end_date":"2026-04-30"}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_people", Short: "Browse people for a specific account", BackendTool: "search_account_people", RequiresFlags: `{"account_id":"001..."}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_salesforce_notes", Short: "Search Salesforce notes for a specific account", BackendTool: "search_account_salesforce_notes", RequiresFlags: `{"account_id":"001..."}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_account_slack_messages", Short: "Search Slack messages for a specific account", BackendTool: "search_account_slack_messages", RequiresFlags: `{"account_id":"001..."}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_datasets", Short: "Search available structured datasets", BackendTool: "search_datasets", RequiresFlags: `{"query":"renewals dataset"}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_document_insights", Short: "Search extracted facts across all document sources", BackendTool: "search_document_insights", RequiresFlags: `{"search_sentences":["security questionnaire","redlines"]}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_knowledge_articles", Short: "Search synthesized customer knowledge articles", BackendTool: "search_knowledge_articles", RequiresFlags: `{"search_query":"renewal risks"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_people", Short: "Browse and filter people at an account", BackendTool: "search_people", RequiresFlags: `{"account_id":"001...","areas":["crm_contacts"]}`}),
+
+		// --- Interaction history (consolidated — replaces get_account_interaction_history) ---
+		newStubToolCommand(stubToolSpec{Use: "get_interaction_history", Short: "Get interaction history (optionally scoped to an account)", BackendTool: "get_interaction_history", RequiresFlags: `{"account_ids":["001..."],"output":"summary"}`}),
+
+		// --- Meetings (consolidated — replaces search_account_meetings) ---
 		newStubToolCommand(stubToolSpec{Use: "search_meetings", Short: "Search meetings across the organization", BackendTool: "search_meetings", RequiresFlags: `{"account_ids":["001..."],"start_date":"2026-04-01","end_date":"2026-04-30"}`}),
 		newStubToolCommand(stubToolSpec{Use: "search_my_meetings", Short: "Search the current user's meetings", BackendTool: "search_my_meetings", RequiresFlags: `{"account_ids":["001..."],"start_date":"2026-04-01","end_date":"2026-04-30"}`}),
-		newStubToolCommand(stubToolSpec{Use: "search_people", Short: "Browse and filter people at an account", BackendTool: "search_people", RequiresFlags: `{"account_id":"001...","areas":["crm_contacts"]}`}),
+
+		// --- Knowledge & documents (consolidated — replaces search_account_* variants) ---
+		newStubToolCommand(stubToolSpec{Use: "find_relevant_documents", Short: "Find vendor documents relevant to a user message", BackendTool: "find_relevant_documents", RequiresFlags: `{"user_message":"prep me for the Acme security review"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_document_insights", Short: "Search extracted facts across all document sources", BackendTool: "search_document_insights", RequiresFlags: `{"search_sentences":["security questionnaire","redlines"]}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_knowledge_articles", Short: "Search synthesized customer knowledge articles", BackendTool: "search_knowledge_articles", RequiresFlags: `{"search_query":"renewal risks"}`}),
 		newStubToolCommand(stubToolSpec{Use: "search_salesforce_notes", Short: "Fetch Salesforce notes for an account", BackendTool: "search_salesforce_notes", RequiresFlags: `{"account_id":"001..."}`}),
 		newStubToolCommand(stubToolSpec{Use: "search_slack_messages", Short: "Fetch Slack messages for an account", BackendTool: "search_slack_messages", RequiresFlags: `{"account_id":"001..."}`}),
+
+		// --- User preferences ---
+		newStubToolCommand(stubToolSpec{Use: "get_user_preferences", Short: "Fetch the current user's core preferences", BackendTool: "get_user_preferences"}),
 		newStubToolCommand(stubToolSpec{Use: "search_user_preferences", Short: "Search the current user's contextual memories", BackendTool: "search_user_preferences", RequiresFlags: `{"query":"pricing preferences"}`}),
-		newStubToolCommand(stubToolSpec{Use: "summarize_account_earnings_calls", Short: "Summarize earnings calls for a specific account", BackendTool: "summarize_account_earnings_calls", RequiresFlags: `{"account_id":"001..."}`}),
-		newStubToolCommand(stubToolSpec{Use: "summarize_earnings_calls", Short: "Summarize earnings calls across accounts", BackendTool: "summarize_earnings_calls", RequiresFlags: `{"account_ids":["001..."]}`}),
+
+		// --- Data & research ---
+		newStubToolCommand(stubToolSpec{Use: "query_data", Short: "Query warehouse data with natural language", BackendTool: "query_data", RequiresFlags: `{"messages":[{"user_message":"show top 10 accounts by ARR"}]}`}),
+		newStubToolCommand(stubToolSpec{Use: "query_dataset", Short: "Query uploaded datasets with natural language", BackendTool: "query_dataset", RequiresFlags: `{"user_message":"top 10 accounts by deal size"}`}),
+		newStubToolCommand(stubToolSpec{Use: "search_datasets", Short: "Search available structured datasets", BackendTool: "search_datasets", RequiresFlags: `{"query":"renewals dataset"}`}),
+		newStubToolCommand(stubToolSpec{Use: "research_company", Short: "Research a company using external sources", BackendTool: "research_company", RequiresFlags: `{"company_name":"Acme"}`}),
+		newStubToolCommand(stubToolSpec{Use: "news_search", Short: "Run a Google News search", BackendTool: "news_search", RequiresFlags: `{"query":"Acme funding"}`}),
 		newStubToolCommand(stubToolSpec{Use: "web_search", Short: "Run a public web search", BackendTool: "web_search", RequiresFlags: `{"query":"Acme pricing page"}`}),
+
+		// --- Earnings calls (consolidated — replaces summarize_account_earnings_calls) ---
+		newStubToolCommand(stubToolSpec{Use: "summarize_earnings_calls", Short: "Summarize earnings calls across accounts", BackendTool: "summarize_earnings_calls", RequiresFlags: `{"account_ids":["001..."]}`}),
 	)
 }
