@@ -134,12 +134,8 @@ Current raw MCP tool names:
 
 ```text
 fetch_knowledge_documents
-find_account_person
-find_accounts
 find_person
 find_relevant_documents
-get_account_interaction_history
-get_account_person_details
 get_document
 get_interaction_history
 get_person_details
@@ -148,13 +144,6 @@ news_search
 query_data
 query_dataset
 research_company
-search_account_document_insights
-search_account_knowledge_articles
-search_account_knowledge_documents
-search_account_meetings
-search_account_people
-search_account_salesforce_notes
-search_account_slack_messages
 search_datasets
 search_document_insights
 search_knowledge_articles
@@ -165,46 +154,34 @@ search_salesforce_notes
 search_slack_messages
 search_user_preferences
 search_vendor_documents
-summarize_account_earnings_calls
 summarize_earnings_calls
 web_search
 ```
 
 Tool descriptions below are based on the live MCP `tools/list` response from the Endgame server.
 
-People and accounts:
+People:
 
-- `find_account_person`: Find a specific person within a specific account using name, email, Salesforce ID, LinkedIn profile ID, or Endgame Person ID.
-- `find_accounts`: Find CRM accounts assigned to a specific user, or retrieve the full sales team roster for an account.
-- `find_person`: Look up a specific person by name, email address, Salesforce ID, LinkedIn profile ID, or Endgame Person ID.
-- `get_account_person_details`: Load detailed information about specific people within a specific account.
-- `get_person_details`: Load detailed profile data for one or more people by Endgame person ID.
-- `search_account_people`: Find people of interest at a specific account across multiple data sources.
-- `search_people`: Search for people at a target company using multiple data sources with filtering and pagination.
+- `find_person`: Look up a specific person by name, email address, Salesforce ID, LinkedIn profile ID, or Endgame Person ID. Accepts an optional `account_id` to scope the search to a specific account.
+- `get_person_details`: Load detailed profile data for one or more people by Endgame person ID. Accepts an optional `account_id` to scope results to a specific account.
+- `search_people`: Search for people at a target company using multiple data sources with filtering and pagination. Accepts an optional `account_id` to scope results to a specific account.
 
 Documents and knowledge:
 
 - `fetch_knowledge_documents`: List knowledge documents with metadata, previews, and pagination support.
 - `find_relevant_documents`: Automatically find vendor knowledge documents relevant to a raw user message.
 - `get_document`: Fetch the full content of a specific document by ID.
-- `search_account_document_insights`: Search facts extracted from account-related documents, including meetings, emails, Slack, notes, and uploads.
-- `search_account_knowledge_articles`: Search synthesized knowledge articles for a specific account.
-- `search_account_knowledge_documents`: Retrieve knowledge documents uploaded for a specific account.
-- `search_document_insights`: Search extracted facts and insights across all document types.
-- `search_knowledge_articles`: Search synthesized knowledge articles about customers and topics.
+- `search_document_insights`: Search extracted facts and insights across all document types. Accepts an optional `account_id` to scope results to a specific account.
+- `search_knowledge_articles`: Search synthesized knowledge articles about customers and topics. Accepts an optional `account_id` to scope results to a specific account.
 - `search_vendor_documents`: Search vendor knowledge documents using semantic and keyword matching.
 
 Meetings, interactions, and notes:
 
-- `get_account_interaction_history`: Retrieve chronological meeting and email history for a specific account.
-- `get_interaction_history`: Retrieve chronological meeting and email history across one or more accounts, or for a specific person.
-- `search_account_meetings`: Search meetings associated with a specific account.
-- `search_account_salesforce_notes`: Fetch recent Salesforce notes recorded against a specific account.
-- `search_account_slack_messages`: Fetch Slack messages related to a specific account.
-- `search_meetings`: Search meetings, calls, and emails across the organization.
+- `get_interaction_history`: Retrieve chronological meeting and email history across one or more accounts, or for a specific person. Accepts an optional `account_id` to scope results to a specific account.
+- `search_meetings`: Search meetings, calls, and emails across the organization. Accepts an optional `account_id` to scope results to a specific account.
 - `search_my_meetings`: Search meetings, calls, and emails where the current user is a participant.
-- `search_salesforce_notes`: Fetch Salesforce notes and activity history for a specific account.
-- `search_slack_messages`: Fetch Slack messages about a specific Salesforce account.
+- `search_salesforce_notes`: Fetch Salesforce notes and activity history. Accepts an optional `account_id` to scope results to a specific account.
+- `search_slack_messages`: Fetch Slack messages. Accepts an optional `account_id` to scope results to a specific account.
 
 Preferences and memory:
 
@@ -225,8 +202,7 @@ Analytics and datasets:
 
 Earnings:
 
-- `summarize_account_earnings_calls`: Retrieve and summarize earnings call transcripts for a specific account.
-- `summarize_earnings_calls`: Retrieve and summarize earnings call transcripts across one or more accounts.
+- `summarize_earnings_calls`: Retrieve and summarize earnings call transcripts across one or more accounts. Accepts an optional `account_id` to scope results to a specific account.
 
 Invocation styles:
 
