@@ -13,7 +13,7 @@ go build -o endgame .
 Install from source:
 
 ```bash
-go install github.com/Endgame-Labs/endgame-cli@latest
+go build -o ~/go/bin/endgame github.com/Endgame-Labs/endgame-cli
 ```
 
 Check the build metadata:
