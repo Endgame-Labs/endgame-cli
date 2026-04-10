@@ -33,7 +33,7 @@ const (
 
 var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
 
-const deviceClientID = "client_01KND957HR1X14Q1X80TK3FPQB"
+const oauthClientID = "client_01KNW910094PCH8KBBKK4V31EZ"
 
 type Config struct {
 	OAuth *OAuthConfig `json:"oauth,omitempty"`
@@ -182,7 +182,7 @@ func Login(options LoginOptions) error {
 	defer listener.Close()
 
 	redirectURI := fmt.Sprintf("http://%s/callback", listener.Addr().String())
-	clientID := deviceClientID
+	clientID := oauthClientID
 
 	oauthConfig := &oauth2.Config{
 		ClientID:    clientID,
@@ -284,7 +284,7 @@ func Login(options LoginOptions) error {
 }
 
 func SupportsDeviceLogin() (bool, error) {
-	if strings.TrimSpace(deviceClientID) == "" {
+	if strings.TrimSpace(oauthClientID) == "" {
 		return false, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -305,7 +305,7 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 		return errors.New("auth server does not support device authorization")
 	}
 
-	clientID := deviceClientID
+	clientID := oauthClientID
 	deviceAuth, err := startDeviceAuthorization(ctx, metadata, clientID)
 	if err != nil {
 		return err
