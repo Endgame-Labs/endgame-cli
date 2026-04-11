@@ -26,19 +26,14 @@ import (
 
 const (
 	configFileName         = ".endgame-auth.json"
-	authServerMetadataURL  = "https://app.endgame.io/.well-known/oauth-authorization-server"
+	authServerMetadataURL  = "https://login.endgame.io/.well-known/openid-configuration"
 	defaultAuthTimeout     = 5 * time.Minute
-	defaultOAuthClientName = "endgame-cli"
-	tokenRefreshWindow     = 2 * time.Minute
+	tokenRefreshWindow = 2 * time.Minute
 )
 
 var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
 
-var directDeviceProvider = deviceProviderConfig{
-	ClientID:  "client_01KND957HR1X14Q1X80TK3FPQB",
-	DeviceURL: "https://login.endgame.io/oauth2/device_authorization",
-	TokenURL:  "https://login.endgame.io/oauth2/token",
-}
+const oauthClientID = "client_01KNW910094PCH8KBBKK4V31EZ"
 
 type Config struct {
 	OAuth *OAuthConfig `json:"oauth,omitempty"`
@@ -74,23 +69,9 @@ type LoginOptions struct {
 type authServerMetadata struct {
 	AuthorizationEndpoint       string   `json:"authorization_endpoint"`
 	TokenEndpoint               string   `json:"token_endpoint"`
-	RegistrationEndpoint        string   `json:"registration_endpoint"`
 	DeviceAuthorizationEndpoint string   `json:"device_authorization_endpoint"`
 	GrantTypesSupported         []string `json:"grant_types_supported"`
 	ScopesSupported             []string `json:"scopes_supported"`
-}
-
-type dynamicClientRegistrationRequest struct {
-	ClientName              string   `json:"client_name"`
-	ApplicationType         string   `json:"application_type"`
-	GrantTypes              []string `json:"grant_types"`
-	RedirectURIs            []string `json:"redirect_uris"`
-	ResponseTypes           []string `json:"response_types"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
-}
-
-type dynamicClientRegistrationResponse struct {
-	ClientID string `json:"client_id"`
 }
 
 type callbackResult struct {
@@ -107,18 +88,6 @@ type tokenClaims struct {
 	} `json:"urn:endgame:workos_org"`
 }
 
-type deviceTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	IDToken      string `json:"id_token"`
-	Error        string `json:"error"`
-	User         *struct {
-		Email string `json:"email"`
-	} `json:"user,omitempty"`
-}
-
 type deviceAuthorizationResponse struct {
 	DeviceCode              string `json:"device_code"`
 	UserCode                string `json:"user_code"`
@@ -126,12 +95,6 @@ type deviceAuthorizationResponse struct {
 	VerificationURIComplete string `json:"verification_uri_complete"`
 	ExpiresIn               int    `json:"expires_in"`
 	Interval                int    `json:"interval"`
-}
-
-type deviceProviderConfig struct {
-	ClientID  string
-	DeviceURL string
-	TokenURL  string
 }
 
 func GetConfigPath() (string, error) {
@@ -219,10 +182,7 @@ func Login(options LoginOptions) error {
 	defer listener.Close()
 
 	redirectURI := fmt.Sprintf("http://%s/callback", listener.Addr().String())
-	clientID, err := registerOAuthClient(ctx, metadata, redirectURI)
-	if err != nil {
-		return err
-	}
+	clientID := oauthClientID
 
 	oauthConfig := &oauth2.Config{
 		ClientID:    clientID,
@@ -324,14 +284,29 @@ func Login(options LoginOptions) error {
 }
 
 func SupportsDeviceLogin() (bool, error) {
-	return strings.TrimSpace(directDeviceProvider.ClientID) != "" &&
-		strings.TrimSpace(directDeviceProvider.DeviceURL) != "" &&
-		strings.TrimSpace(directDeviceProvider.TokenURL) != "", nil
+	if strings.TrimSpace(oauthClientID) == "" {
+		return false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	metadata, err := discoverAuthServerMetadata(ctx)
+	if err != nil {
+		return false, err
+	}
+	return supportsDeviceAuthorization(metadata), nil
 }
 
 func loginWithDeviceFlow(ctx context.Context, configPath string) error {
-	clientID := directDeviceProvider.ClientID
-	deviceAuth, err := startDirectDeviceAuthorization(ctx, directDeviceProvider)
+	metadata, err := discoverAuthServerMetadata(ctx)
+	if err != nil {
+		return err
+	}
+	if !supportsDeviceAuthorization(metadata) {
+		return errors.New("auth server does not support device authorization")
+	}
+
+	clientID := oauthClientID
+	deviceAuth, err := startDeviceAuthorization(ctx, metadata, clientID)
 	if err != nil {
 		return err
 	}
@@ -345,12 +320,12 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 	}
 	fmt.Printf("OAuth tokens will be stored in: %s\n\n", configPath)
 
-	token, email, err := pollDirectDeviceAuthorization(ctx, directDeviceProvider, clientID, deviceAuth)
+	token, err := pollDeviceAuthorization(ctx, metadata, clientID, deviceAuth)
 	if err != nil {
 		return err
 	}
 
-	if strings.TrimSpace(email) != "" {
+	if email := emailFromOAuthToken(token); email != "" {
 		fmt.Printf("Authenticated as %s\n", email)
 	}
 	if prefix := tokenPrefix(token.AccessToken, 3); prefix != "" {
@@ -363,7 +338,7 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 	config := Config{
 		OAuth: &OAuthConfig{
 			ClientID: clientID,
-			TokenURL: directDeviceProvider.TokenURL,
+			TokenURL: metadata.TokenEndpoint,
 			Token:    tokenToConfig(token),
 		},
 	}
@@ -693,8 +668,6 @@ func discoverAuthServerMetadata(ctx context.Context) (*authServerMetadata, error
 		return nil, errors.New("authorization endpoint missing from auth server metadata")
 	case metadata.TokenEndpoint == "":
 		return nil, errors.New("token endpoint missing from auth server metadata")
-	case metadata.RegistrationEndpoint == "":
-		return nil, errors.New("registration endpoint missing from auth server metadata")
 	}
 
 	return &metadata, nil
@@ -710,91 +683,6 @@ func supportsDeviceAuthorization(metadata *authServerMetadata) bool {
 		}
 	}
 	return false
-}
-
-func registerOAuthClient(ctx context.Context, metadata *authServerMetadata, redirectURI string) (string, error) {
-	payload := dynamicClientRegistrationRequest{
-		ClientName:              defaultOAuthClientName,
-		ApplicationType:         "native",
-		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		RedirectURIs:            []string{redirectURI},
-		ResponseTypes:           []string{"code"},
-		TokenEndpointAuthMethod: "none",
-	}
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("marshal client registration payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RegistrationEndpoint, strings.NewReader(string(data)))
-	if err != nil {
-		return "", fmt.Errorf("build client registration request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("register OAuth client: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		return "", fmt.Errorf("register OAuth client: http %d", resp.StatusCode)
-	}
-
-	var registration dynamicClientRegistrationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&registration); err != nil {
-		return "", fmt.Errorf("decode client registration response: %w", err)
-	}
-	if strings.TrimSpace(registration.ClientID) == "" {
-		return "", errors.New("client registration response did not include client_id")
-	}
-
-	return registration.ClientID, nil
-}
-
-func registerDeviceOAuthClient(ctx context.Context, metadata *authServerMetadata) (string, error) {
-	payload := dynamicClientRegistrationRequest{
-		ClientName:              defaultOAuthClientName,
-		ApplicationType:         "native",
-		GrantTypes:              []string{"urn:ietf:params:oauth:grant-type:device_code", "refresh_token"},
-		ResponseTypes:           []string{},
-		TokenEndpointAuthMethod: "none",
-	}
-
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("marshal device client registration payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RegistrationEndpoint, strings.NewReader(string(data)))
-	if err != nil {
-		return "", fmt.Errorf("build device client registration request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("register OAuth device client: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		return "", fmt.Errorf("register OAuth device client: http %d", resp.StatusCode)
-	}
-
-	var registration dynamicClientRegistrationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&registration); err != nil {
-		return "", fmt.Errorf("decode device client registration response: %w", err)
-	}
-	if strings.TrimSpace(registration.ClientID) == "" {
-		return "", errors.New("device client registration response did not include client_id")
-	}
-
-	return registration.ClientID, nil
 }
 
 func startDeviceAuthorization(ctx context.Context, metadata *authServerMetadata, clientID string) (*deviceAuthorizationResponse, error) {
@@ -817,39 +705,6 @@ func startDeviceAuthorization(ctx context.Context, metadata *authServerMetadata,
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		return nil, fmt.Errorf("start device authorization: http %d", resp.StatusCode)
-	}
-
-	var deviceAuth deviceAuthorizationResponse
-	if err := json.NewDecoder(resp.Body).Decode(&deviceAuth); err != nil {
-		return nil, fmt.Errorf("decode device authorization response: %w", err)
-	}
-	if strings.TrimSpace(deviceAuth.DeviceCode) == "" {
-		return nil, errors.New("device authorization response did not include device_code")
-	}
-	return &deviceAuth, nil
-}
-
-func startDirectDeviceAuthorization(ctx context.Context, provider deviceProviderConfig) (*deviceAuthorizationResponse, error) {
-	form := url.Values{}
-	form.Set("client_id", provider.ClientID)
-	form.Set("scope", strings.Join(oauthScopes, " "))
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, provider.DeviceURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("build device authorization request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("start device authorization: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= http.StatusBadRequest {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("start device authorization: http %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var deviceAuth deviceAuthorizationResponse
@@ -942,88 +797,6 @@ func pollDeviceAuthorization(ctx context.Context, metadata *authServerMetadata, 
 		case <-time.After(interval):
 		}
 	}
-}
-
-func pollDirectDeviceAuthorization(ctx context.Context, provider deviceProviderConfig, clientID string, deviceAuth *deviceAuthorizationResponse) (*oauth2.Token, string, error) {
-	interval := time.Duration(deviceAuth.Interval) * time.Second
-	if interval <= 0 {
-		interval = 5 * time.Second
-	}
-
-	expiry := time.Now().Add(time.Duration(deviceAuth.ExpiresIn) * time.Second)
-	if deviceAuth.ExpiresIn <= 0 {
-		expiry = time.Now().Add(defaultAuthTimeout)
-	}
-
-	for {
-		if time.Now().After(expiry) {
-			return nil, "", errors.New("device authorization expired before login completed")
-		}
-
-		form := url.Values{}
-		form.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-		form.Set("device_code", deviceAuth.DeviceCode)
-		form.Set("client_id", clientID)
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, provider.TokenURL, strings.NewReader(form.Encode()))
-		if err != nil {
-			return nil, "", fmt.Errorf("build device token request: %w", err)
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, "", fmt.Errorf("poll device token: %w", err)
-		}
-
-		var tokenResp deviceTokenResponse
-		decodeErr := json.NewDecoder(resp.Body).Decode(&tokenResp)
-		resp.Body.Close()
-		if decodeErr != nil {
-			return nil, "", fmt.Errorf("decode device token response: %w", decodeErr)
-		}
-
-		if resp.StatusCode < http.StatusBadRequest && tokenResp.AccessToken != "" {
-			token := &oauth2.Token{
-				AccessToken:  tokenResp.AccessToken,
-				TokenType:    tokenResp.TokenType,
-				RefreshToken: tokenResp.RefreshToken,
-			}
-			if tokenResp.ExpiresIn > 0 {
-				token.Expiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-			}
-			return token, emailFromDeviceTokenResponse(tokenResp), nil
-		}
-
-		switch tokenResp.Error {
-		case "authorization_pending", "":
-		case "slow_down":
-			interval += 5 * time.Second
-		case "access_denied":
-			return nil, "", errors.New("device authorization was denied")
-		case "expired_token":
-			return nil, "", errors.New("device authorization expired")
-		default:
-			if tokenResp.Error != "" {
-				return nil, "", fmt.Errorf("device authorization failed: %s", tokenResp.Error)
-			}
-			return nil, "", fmt.Errorf("device authorization failed: http %d", resp.StatusCode)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, "", errors.New("timed out waiting for device authorization")
-		case <-time.After(interval):
-		}
-	}
-}
-
-func emailFromDeviceTokenResponse(tokenResp deviceTokenResponse) string {
-	if tokenResp.User != nil && strings.TrimSpace(tokenResp.User.Email) != "" {
-		return strings.TrimSpace(tokenResp.User.Email)
-	}
-	return emailFromIDToken(tokenResp.IDToken)
 }
 
 func emailFromIDToken(idToken string) string {
