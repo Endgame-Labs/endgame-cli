@@ -6,6 +6,9 @@ func init() {
 		newDocumentsFetchCommandWithName("get_document"),
 		newDocumentsVendorKnowledgeCommandWithName("search_vendor_documents"),
 
+		// --- Accounts ---
+		newStubToolCommand(stubToolSpec{Use: "find_accounts", Short: "Find CRM accounts assigned to a user or retrieve sales team roster for an account", BackendTool: "find_accounts", RequiresFlags: `{"user_id":"005..."}  or  {"account_id":"001..."}`}),
+
 		// --- People ---
 		newStubToolCommand(stubToolSpec{Use: "find_person", Short: "Find a specific person by name, email, or ID", BackendTool: "find_person", RequiresFlags: `{"search_query":"Sarah Chen"}`}),
 		newStubToolCommand(stubToolSpec{Use: "get_person_details", Short: "Load detailed profile data for one or more people", BackendTool: "get_person_details", RequiresFlags: `{"person_ids":"guid-1,guid-2"}`}),
