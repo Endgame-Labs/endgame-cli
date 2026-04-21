@@ -79,8 +79,8 @@ Authentication uses OAuth against the public Endgame auth server.
 
 - `endgame auth` prompts for browser login or device-code login when run in an interactive terminal
 - `endgame auth login --mode browser|device` selects the login flow explicitly
-- browser login discovers metadata from `https://app.endgame.io/.well-known/oauth-authorization-server`
-- the CLI dynamically registers a public OAuth client
+- auth metadata is discovered from `https://login.endgame.io/.well-known/openid-configuration`
+- the CLI uses a public OAuth client ID bundled with the binary
 - browser login completes with authorization code + PKCE on a localhost callback
 - device login uses the production Connect device flow on `https://login.endgame.io/oauth2/device_authorization`
 - device login requests `openid profile email offline_access`
@@ -129,6 +129,7 @@ Tool subcommands are loaded from a locally cached snapshot of live MCP `tools/li
 - `endgame auth login` refreshes the tools cache after successful auth
 - `endgame tools sync` refreshes the cache on demand
 - `endgame tools --help` shows the currently cached live tools
+- `endgame tools --help` is hierarchical: a concise command index first, then full per-tool documentation
 - after command execution, the CLI may start a background cache refresh if the last sync is older than 12 hours
 
 Cache location:
