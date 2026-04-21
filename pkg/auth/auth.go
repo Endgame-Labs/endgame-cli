@@ -21,14 +21,15 @@ import (
 	"time"
 
 	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
+	"github.com/Endgame-Labs/endgame-cli/pkg/toolscache"
 	"golang.org/x/oauth2"
 )
 
 const (
-	configFileName         = ".endgame-auth.json"
-	authServerMetadataURL  = "https://login.endgame.io/.well-known/openid-configuration"
-	defaultAuthTimeout     = 5 * time.Minute
-	tokenRefreshWindow = 2 * time.Minute
+	configFileName        = ".endgame-auth.json"
+	authServerMetadataURL = "https://login.endgame.io/.well-known/openid-configuration"
+	defaultAuthTimeout    = 5 * time.Minute
+	tokenRefreshWindow    = 2 * time.Minute
 )
 
 var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
@@ -280,6 +281,9 @@ func Login(options LoginOptions) error {
 	} else {
 		fmt.Println("Authenticated")
 	}
+	if _, err := SyncToolsCache(); err != nil {
+		return fmt.Errorf("authenticated but tool cache sync failed: %w", err)
+	}
 	return nil
 }
 
@@ -358,6 +362,9 @@ func loginWithDeviceFlow(ctx context.Context, configPath string) error {
 	} else {
 		fmt.Println("Authenticated")
 	}
+	if _, err := SyncToolsCache(); err != nil {
+		return fmt.Errorf("authenticated but tool cache sync failed: %w", err)
+	}
 	return nil
 }
 
@@ -387,6 +394,42 @@ func Verify() (*Status, error) {
 	}
 
 	return status, nil
+}
+
+func SyncToolsCache() (int, error) {
+	client, err := NewClient()
+	if err != nil {
+		return 0, err
+	}
+	if err := client.Initialize(); err != nil {
+		return 0, err
+	}
+
+	tools, err := client.ListTools()
+	if err != nil {
+		return 0, err
+	}
+
+	token, err := currentToken()
+	if err != nil {
+		return 0, err
+	}
+
+	orgID := ""
+	if claims, err := parseTokenClaims(token.AccessToken); err == nil {
+		orgID = strings.TrimSpace(claims.Org.ID)
+	}
+
+	cache := toolscache.Cache{
+		FetchedAt: time.Now().UTC(),
+		OrgID:     orgID,
+		Tools:     tools,
+	}
+	if err := toolscache.Save(cache); err != nil {
+		return 0, err
+	}
+
+	return len(tools), nil
 }
 
 func Logout() error {

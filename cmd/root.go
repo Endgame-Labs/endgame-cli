@@ -25,6 +25,10 @@ var rootCmd = &cobra.Command{
 		}
 		return nil
 	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		_ = args
+		maybeStartAutoToolSync(cmd)
+	},
 }
 
 func Execute() {
