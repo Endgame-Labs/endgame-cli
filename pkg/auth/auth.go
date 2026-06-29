@@ -36,6 +36,11 @@ var oauthScopes = []string{"openid", "profile", "email", "offline_access"}
 
 const oauthClientID = "client_01KNW910094PCH8KBBKK4V31EZ"
 
+var configuredMCPHeaders struct {
+	sync.RWMutex
+	values map[string]string
+}
+
 type Config struct {
 	OAuth *OAuthConfig `json:"oauth,omitempty"`
 }
@@ -451,7 +456,19 @@ func NewClient() (*endgame.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return endgame.NewClient(httpClient)
+	return endgame.NewClient(httpClient, endgame.WithHeaders(ConfiguredMCPHeaders()))
+}
+
+func SetConfiguredMCPHeaders(headers map[string]string) {
+	configuredMCPHeaders.Lock()
+	defer configuredMCPHeaders.Unlock()
+	configuredMCPHeaders.values = cloneStringMap(headers)
+}
+
+func ConfiguredMCPHeaders() map[string]string {
+	configuredMCPHeaders.RLock()
+	defer configuredMCPHeaders.RUnlock()
+	return cloneStringMap(configuredMCPHeaders.values)
 }
 
 func NewHTTPClient() (*http.Client, error) {
@@ -1057,4 +1074,15 @@ func cloneToken(token *oauth2.Token) *oauth2.Token {
 	}
 	copy := *token
 	return &copy
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }

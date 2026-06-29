@@ -100,6 +100,18 @@ This was soak-tested with repeated authenticated CLI queries over 30 minutes, in
 
 There are no required auth environment variables. `endgame thread env` reports `ENDGAME_TIMEOUT_SECONDS` when set.
 
+## Org Impersonation
+
+`--impersonate-org` is only for multi-instance admins, such as Endgame employees
+or RevOps users who administer more than one Endgame instance:
+
+```bash
+endgame --impersonate-org 6054 tools sync
+```
+
+The CLI sends `X-Endgame-Act-As-Org-Id` with every MCP request. Authorization is enforced
+by the MCP server; normal OAuth/bearer authentication still applies.
+
 ## Commands
 
 Top-level commands:

@@ -19,9 +19,12 @@ import (
 const BaseURL = "https://app.endgame.io/api/v1/mcp"
 
 type Client struct {
-	reqID  int
-	client *http.Client
+	reqID   int
+	client  *http.Client
+	headers map[string]string
 }
+
+type ClientOption func(*Client)
 
 type Tool struct {
 	Name        string          `json:"name"`
@@ -52,7 +55,13 @@ type rpcEnvelope struct {
 	} `json:"error"`
 }
 
-func NewClient(httpClient *http.Client) (*Client, error) {
+func WithHeaders(headers map[string]string) ClientOption {
+	return func(client *Client) {
+		client.headers = cloneHeaders(headers)
+	}
+}
+
+func NewClient(httpClient *http.Client, options ...ClientOption) (*Client, error) {
 	if httpClient == nil {
 		return nil, errors.New("http client is required")
 	}
@@ -63,9 +72,16 @@ func NewClient(httpClient *http.Client) (*Client, error) {
 
 	httpClient.Timeout = timeout
 
-	return &Client{
+	client := &Client{
 		client: httpClient,
-	}, nil
+	}
+	for _, option := range options {
+		if option != nil {
+			option(client)
+		}
+	}
+
+	return client, nil
 }
 
 func getTimeout() (time.Duration, error) {
@@ -108,6 +124,9 @@ func (c *Client) Call(method string, params any) (json.RawMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
+	for key, value := range c.headers {
+		req.Header[key] = []string{value}
+	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 
@@ -148,6 +167,17 @@ func (c *Client) Call(method string, params any) (json.RawMessage, error) {
 	}
 
 	return rpcResp.Result, nil
+}
+
+func cloneHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(headers))
+	for key, value := range headers {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (c *Client) Initialize() error {
