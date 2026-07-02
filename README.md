@@ -118,10 +118,32 @@ Top-level commands:
 
 ```text
 auth
+graph
 thread
 tools
 version
 whoami
+```
+
+### Graph
+
+Use `graph list` for common read-only context graph queries without writing raw JSON:
+
+```bash
+endgame graph list account --limit 5
+endgame graph list opportunity --where is_closed=false --where 'amount>=500000' --order-by updated_at_desc --limit 10
+```
+
+The `--where` flag accepts `field=value`, `field!=value`, `field>=value`, and
+`field<=value`. Values are inferred as booleans, numbers, or strings. Repeat `--where`
+to AND filters together. Quote expressions containing `>` or `<` so your shell does not
+treat them as redirects.
+
+For advanced reads, `--json` remains available as a fallback to pass the raw
+`list_graph_entities` input object:
+
+```bash
+endgame graph list opportunity --json '{"type":"opportunity","where":[{"field":"is_closed","op":"eq","value":false,"valueType":"boolean"}],"limit":3}'
 ```
 
 ### Threads
