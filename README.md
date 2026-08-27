@@ -117,6 +117,7 @@ by the MCP server; normal OAuth/bearer authentication still applies.
 Top-level commands:
 
 ```text
+admin
 auth
 graph
 thread
@@ -124,6 +125,19 @@ tools
 version
 whoami
 ```
+
+### Admin
+
+Endgame administrators can enqueue the existing WorkOS directory reconciliation
+worker for one Cerebro organization or every mapped organization:
+
+```bash
+endgame admin workos-directory reconcile --organization-id <cerebro-org-id>
+endgame admin workos-directory reconcile --all
+```
+
+The command queues BullMQ work and returns immediately; it does not run the
+reconciliation inside the CLI process.
 
 ### Graph
 
