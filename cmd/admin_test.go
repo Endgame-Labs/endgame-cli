@@ -12,17 +12,20 @@ func TestWorkOSDirectoryReconcileCommand(t *testing.T) {
 		name       string
 		args       []string
 		wantTarget string
+		wantTask   string
 		wantError  bool
 	}{
 		{
 			name:       "one organization",
 			args:       []string{"--organization-id", "org-123"},
 			wantTarget: "org-123",
+			wantTask:   "Queue WorkOS directory reconciliation for Cerebro organization org-123.",
 		},
 		{
 			name:       "all organizations",
 			args:       []string{"--all"},
 			wantTarget: "*",
+			wantTask:   "Queue WorkOS directory reconciliation for every mapped organization.",
 		},
 		{name: "missing scope", wantError: true},
 		{
@@ -63,7 +66,12 @@ func TestWorkOSDirectoryReconcileCommand(t *testing.T) {
 			if toolName != "queue_workos_directory_reconciliation" {
 				t.Fatalf("unexpected tool name %q", toolName)
 			}
-			wantArguments := map[string]any{"organization_id": test.wantTarget}
+			wantArguments := map[string]any{
+				"organization_id": test.wantTarget,
+				"goal":            "Initialize or repair the WorkOS directory replica from the Endgame CLI.",
+				"task":            test.wantTask,
+				"journey":         "An Endgame administrator invoked the dedicated WorkOS directory reconciliation command.",
+			}
 			if !reflect.DeepEqual(arguments, wantArguments) {
 				t.Fatalf("arguments = %#v, want %#v", arguments, wantArguments)
 			}
