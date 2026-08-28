@@ -11,6 +11,37 @@ type captureRoundTripper struct {
 	requests []*http.Request
 }
 
+func TestClientUsesConfiguredPreviewEndpoint(t *testing.T) {
+	transport := &captureRoundTripper{}
+	previewURL, err := PreviewURL(12603)
+	if err != nil {
+		t.Fatalf("PreviewURL returned error: %v", err)
+	}
+	client, err := NewClient(
+		&http.Client{Transport: transport},
+		WithEndpoint(previewURL),
+	)
+	if err != nil {
+		t.Fatalf("NewClient returned error: %v", err)
+	}
+
+	if err := client.Initialize(); err != nil {
+		t.Fatalf("Initialize returned error: %v", err)
+	}
+
+	if got := transport.requests[0].URL.String(); got != previewURL {
+		t.Fatalf("request URL = %q, want %q", got, previewURL)
+	}
+}
+
+func TestPreviewURLRejectsNonPositivePullRequestNumber(t *testing.T) {
+	for _, pullRequestNumber := range []int{0, -1} {
+		if _, err := PreviewURL(pullRequestNumber); err == nil {
+			t.Fatalf("PreviewURL(%d) returned nil error", pullRequestNumber)
+		}
+	}
+}
+
 func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	c.requests = append(c.requests, req.Clone(req.Context()))
 	return &http.Response{

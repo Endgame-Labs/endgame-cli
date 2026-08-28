@@ -7,12 +7,14 @@ import (
 	"strings"
 
 	"github.com/Endgame-Labs/endgame-cli/pkg/auth"
+	"github.com/Endgame-Labs/endgame-cli/pkg/endgame"
 	"github.com/spf13/cobra"
 )
 
 const impersonateOrgHeader = "X-Endgame-Act-As-Org-Id"
 
 var impersonateOrgID string
+var previewPullRequest int
 
 var rootCmd = &cobra.Command{
 	Use:           "endgame",
@@ -31,6 +33,9 @@ var rootCmd = &cobra.Command{
 		if err := configureMCPHeaders(); err != nil {
 			return err
 		}
+		if err := configureMCPEndpoint(); err != nil {
+			return err
+		}
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -41,6 +46,20 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&impersonateOrgID, "impersonate-org", "", "Endgame org ID for multi-instance admins to send as X-Endgame-Act-As-Org-Id on every MCP request")
+	rootCmd.PersistentFlags().IntVar(&previewPullRequest, "preview", 0, "Cerebro PR number whose preview MCP endpoint should receive this command")
+}
+
+func configureMCPEndpoint() error {
+	if previewPullRequest == 0 {
+		auth.SetConfiguredMCPEndpoint("")
+		return nil
+	}
+	endpoint, err := endgame.PreviewURL(previewPullRequest)
+	if err != nil {
+		return err
+	}
+	auth.SetConfiguredMCPEndpoint(endpoint)
+	return nil
 }
 
 func Execute() {

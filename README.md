@@ -139,6 +139,18 @@ endgame admin workos-directory reconcile --all
 The command queues BullMQ work and returns immediately; it does not run the
 reconciliation inside the CLI process.
 
+To exercise the same server-backed command against a Cerebro PR preview, pass
+the PR number. The CLI derives the official Endgame preview host and continues
+to use the normal OAuth token; production remains the default when the flag is
+absent:
+
+```bash
+endgame admin workos-directory reconcile --preview 12603 --organization-id <cerebro-org-id>
+```
+
+The preview selector does not accept arbitrary URLs, so the CLI never forwards
+the bearer token to a user-supplied host.
+
 ### Graph
 
 Use `graph list` for common read-only context graph queries without writing raw JSON:

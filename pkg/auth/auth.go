@@ -41,6 +41,11 @@ var configuredMCPHeaders struct {
 	values map[string]string
 }
 
+var configuredMCPEndpoint struct {
+	sync.RWMutex
+	value string
+}
+
 type Config struct {
 	OAuth *OAuthConfig `json:"oauth,omitempty"`
 }
@@ -456,7 +461,25 @@ func NewClient() (*endgame.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return endgame.NewClient(httpClient, endgame.WithHeaders(ConfiguredMCPHeaders()))
+	options := []endgame.ClientOption{
+		endgame.WithHeaders(ConfiguredMCPHeaders()),
+	}
+	if endpoint := ConfiguredMCPEndpoint(); endpoint != "" {
+		options = append(options, endgame.WithEndpoint(endpoint))
+	}
+	return endgame.NewClient(httpClient, options...)
+}
+
+func SetConfiguredMCPEndpoint(endpoint string) {
+	configuredMCPEndpoint.Lock()
+	defer configuredMCPEndpoint.Unlock()
+	configuredMCPEndpoint.value = strings.TrimSpace(endpoint)
+}
+
+func ConfiguredMCPEndpoint() string {
+	configuredMCPEndpoint.RLock()
+	defer configuredMCPEndpoint.RUnlock()
+	return configuredMCPEndpoint.value
 }
 
 func SetConfiguredMCPHeaders(headers map[string]string) {

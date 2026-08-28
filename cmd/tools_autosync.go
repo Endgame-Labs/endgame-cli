@@ -21,6 +21,12 @@ func maybeStartAutoToolSync(cmd *cobra.Command) {
 	if cmd == nil {
 		return
 	}
+	// Preview commands intentionally use the production tool cache and explicit
+	// built-in command contracts. Do not start an unrelated production sync after
+	// a preview-targeted invocation.
+	if previewPullRequest != 0 {
+		return
+	}
 	if strings.TrimSpace(os.Getenv(autoSyncEnvVar)) == "1" {
 		return
 	}

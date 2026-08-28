@@ -18,10 +18,13 @@ import (
 
 const BaseURL = "https://app.endgame.io/api/v1/mcp"
 
+const previewURLFormat = "https://pr-%d-vite.preview.end-p1.endgame.build/api/v1/mcp"
+
 type Client struct {
-	reqID   int
-	client  *http.Client
-	headers map[string]string
+	reqID       int
+	client      *http.Client
+	headers     map[string]string
+	endpointURL string
 }
 
 type ClientOption func(*Client)
@@ -61,6 +64,23 @@ func WithHeaders(headers map[string]string) ClientOption {
 	}
 }
 
+// WithEndpoint directs MCP calls to a prevalidated endpoint. The CLI exposes
+// only production and deterministic Endgame preview hosts to avoid forwarding
+// bearer tokens to arbitrary servers.
+func WithEndpoint(endpoint string) ClientOption {
+	return func(client *Client) {
+		client.endpointURL = strings.TrimSpace(endpoint)
+	}
+}
+
+// PreviewURL returns the public MCP endpoint for a Cerebro PR preview.
+func PreviewURL(pullRequestNumber int) (string, error) {
+	if pullRequestNumber <= 0 {
+		return "", errors.New("preview pull request number must be positive")
+	}
+	return fmt.Sprintf(previewURLFormat, pullRequestNumber), nil
+}
+
 func NewClient(httpClient *http.Client, options ...ClientOption) (*Client, error) {
 	if httpClient == nil {
 		return nil, errors.New("http client is required")
@@ -73,7 +93,8 @@ func NewClient(httpClient *http.Client, options ...ClientOption) (*Client, error
 	httpClient.Timeout = timeout
 
 	client := &Client{
-		client: httpClient,
+		client:      httpClient,
+		endpointURL: BaseURL,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -97,7 +118,7 @@ func getTimeout() (time.Duration, error) {
 }
 
 func (c *Client) endpoint() string {
-	return BaseURL
+	return c.endpointURL
 }
 
 func (c *Client) nextID() int {
